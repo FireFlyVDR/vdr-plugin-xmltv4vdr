@@ -1,0 +1,13 @@
+Patches for tvspielfim2xmltv from chriszero 
+
+tvspielfilm2xmltv_python3.diff
+Brings the script to Python3
+
+tvspielfilm2xmltv_reverse_channelmap.diff
+Re-order channelmap for better access
+
+tvspielfilm2xmltv_fix_starrating.diff
+Fix recognition of star-ratings
+
+tvspielfilm2xmltv_redesign_channelmap.diff
+Split channelmap into a file and support combined info of regional stations

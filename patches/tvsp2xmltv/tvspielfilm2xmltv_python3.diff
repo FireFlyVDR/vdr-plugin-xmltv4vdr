@@ -1,0 +1,222 @@
+diff -Nur tvspielfilm2xmltv-master/tvsp2xmltv/defaults.py tvspielfilm2xmltv-python3/tvsp2xmltv/defaults.py
+--- tvspielfilm2xmltv-master/tvsp2xmltv/defaults.py	2016-04-01 18:51:06.000000000 +0200
++++ tvspielfilm2xmltv-python3/tvsp2xmltv/defaults.py	2024-04-06 14:34:10.820390964 +0200
+@@ -1,13 +1,12 @@
+-#!/usr/bin/python
++#!/usr/bin/python3
+ # -*- coding: utf-8 -*-
+ import operator
+ import os
+ import stat
+-import ConfigParser
++import configparser
+ 
+ import requests
+-import logger
+-
++from . import logger
+ 
+ # ugo+rw because may different user work with this file
+ file_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
+@@ -25,7 +24,7 @@
+     return file_name
+ 
+ 
+-config = ConfigParser.ConfigParser()
++config = configparser.ConfigParser()
+ conf_file = find_in_path('tvspielfilm2xmltv.ini')
+ config.read(conf_file)
+ 
+@@ -278,14 +277,14 @@
+ 
+ 
+ def get_channel_key(value):
+-    for name, val in channel_map.items():
++    for name, val in list(channel_map.items()):
+         if val == value:
+             return name
+ 
+ 
+ def write_controlfile(grab_time, grab_days):
+-    print('Writing Controlfile [{0}, {1}, {2}]'.format(control_file, grab_time, grab_days))
+-    sorted_x = sorted(channel_map.values(), key=operator.itemgetter(1))
++    print(('Writing Controlfile [{0}, {1}, {2}]'.format(control_file, grab_time, grab_days)))
++    sorted_x = sorted(list(channel_map.values()), key=operator.itemgetter(1))
+     try:
+         # Delete first because user have no permission to change attrib from files other users own
+         if os.path.exists(control_file):
+@@ -315,17 +314,17 @@
+         f = open("channelids.txt", "U")
+         channelids = f.read().split(os.linesep)
+         f.close()
+-        channelids = filter(lambda x: len(x) > 0, channelids)
++        channelids = [x for x in channelids if len(x) > 0]
+ 
+         print("The following channels are NOT in the official list:")
+ 
+-        for name, val in channel_map.items():
++        for name, val in list(channel_map.items()):
+             if val not in channelids:
+-                print("%s" % val)
++                print(("%s" % val))
+ 
+-        for val in combination_channels.keys():
++        for val in list(combination_channels.keys()):
+             if val not in channelids:
+-                print("%s" % val)
++                print(("%s" % val))
+     except IOError as e:
+         logger.log(e, logger.ERROR)
+ 
+@@ -339,19 +338,19 @@
+     for val in data:
+         tvsp_ids[val['id']] = val['name']
+ 
+-    channelids = filter(lambda x: len(x) > 0, tvsp_ids)
++    channelids = [x for x in tvsp_ids if len(x) > 0]
+ 
+     print("The following channels included in the channel map are NOT provided by the server:")
+-    for name, val in channel_map.items():
++    for name, val in list(channel_map.items()):
+         if name not in channelids:
+-            print("%s : %s," % (name, val) )
++            print(("%s : %s," % (name, val) ))
+ 
+     print("\n")
+ 
+-    channelids = filter(lambda x: len(x) > 0, channel_map)
++    channelids = [x for x in channel_map if len(x) > 0]
+ 
+     print("The following channels are NOT in the current channel map:")
+-    for name, val in tvsp_ids.items():
++    for name, val in list(tvsp_ids.items()):
+         if name not in channelids:
+-            print('"%s" : "%s",' % (name, val) )
++            print(('"%s" : "%s",' % (name, val) ))
+ 
+diff -Nur tvspielfilm2xmltv-master/tvsp2xmltv/__init__.py tvspielfilm2xmltv-python3/tvsp2xmltv/__init__.py
+--- tvspielfilm2xmltv-master/tvsp2xmltv/__init__.py	2016-04-01 18:51:06.000000000 +0200
++++ tvspielfilm2xmltv-python3/tvsp2xmltv/__init__.py	2020-06-15 18:12:43.680542811 +0200
+@@ -1,2 +1,2 @@
+-#!/usr/bin/python
++#!/usr/bin/python3
+ # -*- coding: utf-8 -*-
+diff -Nur tvspielfilm2xmltv-master/tvsp2xmltv/logger.py tvspielfilm2xmltv-python3/tvsp2xmltv/logger.py
+--- tvspielfilm2xmltv-master/tvsp2xmltv/logger.py	2016-04-01 18:51:06.000000000 +0200
++++ tvspielfilm2xmltv-python3/tvsp2xmltv/logger.py	2020-06-15 18:12:57.048508337 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/python
++#!/usr/bin/python3
+ # -*- coding: utf-8 -*-
+ '''
+ Created on 26.04.2013
+diff -Nur tvspielfilm2xmltv-master/tvsp2xmltv/model.py tvspielfilm2xmltv-python3/tvsp2xmltv/model.py
+--- tvspielfilm2xmltv-master/tvsp2xmltv/model.py	2016-04-01 18:51:06.000000000 +0200
++++ tvspielfilm2xmltv-python3/tvsp2xmltv/model.py	2024-04-06 14:35:30.972141904 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/python
++#!/usr/bin/python3
+ # -*- coding: utf-8 -*-
+ import datetime
+ import os
+@@ -97,7 +97,6 @@
+                                 'stop': self.__format_date_for_xmltv(stop),
+                                 'channel': self.channel_id
+                             })
+-
+         programme.append(Comment(' pid = {0} '.format(self.programme_id)))
+ 
+         tmp = SubElement(programme, "title", {'lang': 'de'})
+@@ -129,11 +128,11 @@
+         tmp = SubElement(programme, 'category', {'lang': 'de'})
+         tmp.text = self.genre
+ 
+-        if defaults.sart_map.has_key(self.sart_id):
++        if self.sart_id in defaults.sart_map:
+             tmp = SubElement(programme, 'category')
+             tmp.text = defaults.sart_map[self.sart_id]
+ 
+-        if defaults.thumb_id_map.has_key(self.star_rating):
++        if self.star_rating in defaults.thumb_id_map:
+             tmp = SubElement(programme, 'star-rating')
+             tmp.text = '{0} / 3'.format(defaults.thumb_id_map[self.star_rating])
+ 
+@@ -207,7 +206,7 @@
+ 
+         if self.actors:
+             for entry in self.actors:
+-                pair = entry.items()[0]
++                pair = list(entry.items())[0]
+                 tmp = SubElement(credits_element, "actor", {'role': pair[0]})
+                 tmp.text = pair[1]
+ 
+diff -Nur tvspielfilm2xmltv-master/tvsp2xmltv/pictureLoader.py tvspielfilm2xmltv-python3/tvsp2xmltv/pictureLoader.py
+--- tvspielfilm2xmltv-master/tvsp2xmltv/pictureLoader.py	2016-04-01 18:51:06.000000000 +0200
++++ tvspielfilm2xmltv-python3/tvsp2xmltv/pictureLoader.py	2020-06-16 23:19:12.417516025 +0200
+@@ -1,10 +1,10 @@
+-#!/usr/bin/python
++#!/usr/bin/python3
+ # -*- coding: utf-8 -*-
+ import requests
+ import glob
+ from io import open
+ from os import path, remove, fchmod
+-from urlparse import urlsplit
++from urllib.parse import urlsplit
+ from . import defaults
+ from . import logger
+ from xml.etree.ElementTree import Element
+@@ -30,7 +30,7 @@
+         if self.programme.images:
+             if len(self.programme.images) > 0:
+                 i = 0
+-                for im in sorted(self.programme.images):
++                for im in sorted(self.programme.images, key=lambda item: item.get("size1")):
+                     i += 1
+                     f = self.__download_image(im['size{0}'.format(defaults.size_of_images)], defaults.epgimages_dir)
+                     if f:
+diff -Nur tvspielfilm2xmltv-master/tvsp2xmltv/tvsGrabber.py tvspielfilm2xmltv-python3/tvsp2xmltv/tvsGrabber.py
+--- tvspielfilm2xmltv-master/tvsp2xmltv/tvsGrabber.py	2016-04-01 18:51:06.000000000 +0200
++++ tvspielfilm2xmltv-python3/tvsp2xmltv/tvsGrabber.py	2024-04-06 14:37:32.715763602 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/python
++#!/usr/bin/python3
+ # -*- coding: utf-8 -*-
+ import datetime
+ 
+@@ -28,7 +28,7 @@
+         #broadcast/list/K1/2014-10-18
+         #url = "http://tvs3.cellular.de/broadcast/list/{0}/{1}".format(tvsp_id, date)
+         url = "https://live.tvspielfilm.de/static/broadcast/list/{0}/{1}".format(tvsp_id, date)
+-        print url
++        print(url)
+         r = requests.get(url, headers=self.headers)
+         r.encoding = 'utf-8'
+         if r.status_code == requests.codes.ok:
+@@ -48,7 +48,7 @@
+ 
+         # combination channels
+         for chan_id in self.channel_list:
+-            if defaults.combination_channels.has_key(chan_id):
++            if chan_id in defaults.combination_channels:
+                 name = ';'.join(str(x) for x in defaults.combination_channels[chan_id])
+                 chan = model.Channel(chan_id, name)
+                 self.xmltv_doc.append_element(chan)
+@@ -87,7 +87,7 @@
+     def __grab_day(self, date, tvsp_id, channel_id):
+         retry = 0
+         data = self._get_channel(date, tvsp_id)
+-        for s in data:
++        for s in data or []:
+         # Im Falle eines Fehlers beim grabben
+             try:
+                 prog = model.Programme(s, channel_id, self.pictures)
+diff -Nur tvspielfilm2xmltv-master/tvspielfilm2xmltv.py tvspielfilm2xmltv-python3/tvspielfilm2xmltv.py
+--- tvspielfilm2xmltv-master/tvspielfilm2xmltv.py	2016-04-01 18:51:06.000000000 +0200
++++ tvspielfilm2xmltv-python3/tvspielfilm2xmltv.py	2020-06-15 18:12:11.008627069 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/python
++#!/usr/bin/python3
+ # encoding: utf-8
+ '''
+ setup -- shortdesc

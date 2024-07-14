@@ -1,0 +1,588 @@
+diff -Nur tvspielfilm2xmltv-master/channel.map tvspielfilm2xmltv-latest/channel.map
+--- tvspielfilm2xmltv-master/channel.map	1970-01-01 01:00:00.000000000 +0100
++++ tvspielfilm2xmltv-latest/channel.map	2024-04-06 18:21:03.753975099 +0200
+@@ -0,0 +1,238 @@
++"13th-street.de" : "13TH"
++"3plus.ch" : "3PLUS"
++"3sat.de" : "3SAT"
++"adult-channel.com" : "ADULT"
++"animal-planet.de" : "APLAN"
++"anixe.de" : "ANIXE"
++"ard-alpha.de" : "ALPHA"
++"ard.de" : "ARD"
++"arte.de" : "ARTE"
++"atv.at" : "ATV"
++"atv2.at" : "ATV2"
++"axntv.de" : "AXN"
++"bbc-entertainment.dk" : "BBC-E"
++"bbcworld.uk" : "BBC"
++"beate-uhse-tv.de" : "BUTV"
++"belgien.be" : "BE1"
++"bibeltv.de" : "BIBEL"
++"bloombergtv.de" : "BLM"
++"blue-movie-1.de" : "BLUM"
++"blue-movie-2.de" : "BLUM2"
++"blue-movie-3.de" : "BLUM3"
++"bongusto.de" : "GUSTO"
++"cartoon-network.de" : "C-NET"
++"classica.de" : "CLASS"
++"cnn.de" : "CNN"
++"comedy-central.de" : "CC"
++"deluxe-music.de" : "DMC"
++"discovery-channel.de" : "HDDIS"
++"disney-channel.de" : "DISNE"
++"disney-junior.de" : "DJUN"
++"dmax.de" : "DMAX"
++"dr1.dk" : "DR1"
++"dw.de" : "DWTV"
++"e-entertainment-television.de" : "E!"
++"euronews.de" : "EURON"
++"eurosport-2.de" : "EURO2"
++"eurosport.de" : "EURO"
++"extreme-sports-channel.de" : "EX-SP"
++"fashiontv.fr" : "FATV"
++"fox-channel.de" : "FOX"
++"geo-television.de" : "GEO"
++"goldstar-tv.de" : "GOLD"
++"gute-laune-tv.de" : "LAUNE"
++"hamburg-1.de" : "HH1"
++"heimatkanal.de" : "HEIMA"
++"hessen3.de" : "HR"
++"history-hd.de" : "HISHD"
++"hse24.de" : "HSE"
++"jukebox.de" : "JUKE"
++"junior.de" : "JUNIO"
++"k-tv.at" : "KTV"
++"kabel-eins-classics.de" : "K1CLA"
++"kabel1.de" : "K1"
++"kika.de" : "KIKA"
++"kinowelt-tv.de" : "KINOW"
++"lust-pur.de" : "LUSTP"
++"mezzotv.fr" : "MEZZO"
++"motorvision-tv.de" : "MOVTV"
++"mtv-base.de" : "MTV-B"
++"mtv-dance.uk" : "MTV-D"
++"mtv-hits.uk" : "MTV-H"
++"mtv-live.uk" : "MTV-L"
++"mtv.de" : "MTV"
++"national-geographic-wild.de" : "N-GW"
++"national-geographic.de" : "N-GHD"
++"nautical-channel.com" : "NAUCH"
++"nickelodeon.de" : "NICK"
++"nicktoons.de" : "NICKT"
++"ntv.de" : "NTV"
++"one.de" : "FES"
++"orf-sport.at" : "ORFSP"
++"orf1.at" : "ORF1"
++"orf2.at" : "ORF2"
++"orf3.at" : "ORF3"
++"phoenix.de" : "PHOEN"
++"planet.de" : "PLANE"
++"playboy.de" : "PBOY,
++"prosieben-fun.de" : "PRO7F"
++"prosieben-maxx.de" : "PRO7M"
++"prosieben.de" : "PRO7"
++"puls4.at" : "PULS4"
++"qvc.de" : "QVC"
++"rcktv.de" : "RCK"
++"ric.de" : "RIC"
++"romance-tv.de" : "ROM"
++"rtl-crime.de" : "RTL-C"
++"rtl-living.de" : "RTL-L"
++"rtl-nitro.de" : "RTL-N"
++"rtl-passion.de" : "PASS"
++"rtl.de" : "RTL"
++"rtl2.de" : "RTL2"
++"sat1-emotions.de" : "SAT1E"
++"sat1-gold.de" : "SAT1G"
++"sat1.de" : "SAT1"
++"sci-fi.de" : "SCIFI"
++"servustv.at" : "SERVU"
++"sf1.ch" : "SF1"
++"sf2.ch" : "SF2"
++"silverline-tv.de" : "SILVE"
++"sixx.de" : "SIXX"
++"sky-action.de" : "SKY-A"
++"sky-atlantic-hd.de" : "SKYAT"
++"sky-cinema-24.de" : "CIN24"
++"sky-cinema-hits.de" : "SKY-H"
++"sky-cinema.de" : "CIN"
++"sky-comedy.de" : "SKY-C"
++"sky-fussball-bundesliga.de" : "BULI"
++"sky-krimi.de" : "SKY-K"
++"sky-nostalgie.de" : "SKY-N"
++"sky-select.de" : "SKY-S"
++"sky-sport-1-hd.de" : "HDSPO"
++"sky-sport-2-hd.de" : "SHD2"
++"sky-sport-austria.at" : "SPO-A"
++"sky-sport-news-hd.de" : "SNHD"
++"sonnenklartv.de" : "SKLAR"
++"sony-entertainmen.tv" : "SONY"
++"spiegel-geschichte.de" : "SP-GE"
++"spiegel-tv-wissen.de" : "SPTVW"
++"sport1.de" : "SPORT"
++"sport1plus.de" : "S1PLU"
++"sportdigitaltv.de" : "SPO-D"
++"star-tv.ch" : "STTV"
++"superrtl.de" : "SUPER"
++"tagesschau24.de" : "TAG24"
++"tele5.de" : "TELE5"
++"tlc.de" : "TLC"
++"tnt-film.de" : "TNT-F"
++"tnt-serie.de" : "TNT-S"
++"tracetv.fr" : "TRACE"
++"tv-berlin.de" : "TVB"
++"tv-muenchen.de" : "TVM"
++"tv2.tr" : "TV2"
++"tv5-monde.fr" : "TV5"
++"universal-channel.de" : "UNIVE"
++"vh1-classic.uk" : "VH1"
++"vox.de" : "VOX"
++"welt-der-wunder-tv.de" : "WDWTV"
++"zdf.de" : "ZDF"
++"zdfinfo.de" : "ZINFO"
++"zdfneo.de" : "2NEO"
++"123.tv" : "123TV"
++"al-jazeera.com" : "ALJAZ"
++"atv-avrupa.de" : "ATV-A"
++"auto-motor-sport.de" : "AMS"
++"bbc-four.gb" : "BBC4"
++"bbc-news.gb" : "BBC-N"
++"bbc-one.gb" : "BBC1"
++"bbc-two.gb" : "BBC2"
++"br-nord.de" : "BR"
++"br-sued.de" : "BR,
++"channel21.de" : "CH21"
++"cnbc.com" : "CNBC"
++"dazn.de" : "DAZN"
++"deutsches-musik-fernsehen.de" : "DMF"
++"eo.de" : "EOTV"
++"esports1.de" : "ES1"
++"euro-d.de" : "EURO-D"
++"euronews.gb" : "ENGB"
++"fine-living-network.com" : "FLN"
++"fixundfoxi.de" : "FFTV"
++"france24.com" : "FR24E"
++"france24.fr" : "FR24F"
++"health.de" : "HEALTH"
++"home-garden-tv.de" : "HGTV"
++"kabel-eins-doku.de" : "K1DOKU"
++"leipzig-fernsehen.de" : "LEITV"
++"marcopolo.de" : "MAPO"
++"mdr-sachsen-anhalt.de" : "MDR"
++"mdr-sachsen.de" : "MDR"
++"mdr-thueringen.de" : "MDR"
++"n24-doku.de" : "N24DOKU"
++"ndr-hh.de" : "N3"
++"ndr-mv.de" : "N3"
++"ndr-ni.de" : "N3"
++"ndr-sh.de" : "N3"
++"nhk-world.eu" : "NHK"
++"nickjr.de" : "NICKJ"
++"now.us" : "NOWUS"
++"oe24.de" : "OE24TV"
++"plus-acht.de" : "PULS8"
++"qvc-plus.de" : "QVCP"
++"radio-bremen-tv.de" : "N3"
++"rbb-berlin.de" : "RBB"
++"rbb-brandenburg.de" : "RBB"
++"rhein-neckar-fernsehen.de" : "RNF"
++"rheinmaintv.de" : "RMTV"
++"rocket-beans-tv.de" : "RBTV"
++"rtlplus.de" : "RTLPL"
++"sky-family.de" : "SKY-F"
++"sky1.de" : "SKY1"
++"sr.de" : "SWR"
++"swr-bw.de" : "SWR"
++"swr-rp.de" : "SWR"
++"tnt-comedy.de" : "TNT-C"
++"toggo-plus.de" : "TOGGO"
++"travelxp-4k.de" : "TRAVELXP"
++"uhd1.eu" : "UHD1"
++"voxup.de" : "VOXUP"
++"wdr-aachen.de" : "WDR"
++"wdr-bielefeld.de" : "WDR"
++"wdr-bonn.de" : "WDR"
++"wdr-dortmund.de" : "WDR"
++"wdr-duesseldorf.de" : "WDR"
++"wdr-duisburg.de" : "WDR"
++"wdr-essen.de" : "WDR"
++"wdr-koeln.de" : "WDR"
++"wdr-muenster.de" : "WDR"
++"wdr-siegen.de" : "WDR"
++"wdr-wuppertal.de" : "WDR"
++"welt.de" : "WELT"
++"CNN Money" : "CNN-M"
++"CNN Türk" : "CNN-T"
++"Canal+" : "CPLUS"
++"Canal+ Cinéma" : "CPLUSC"
++"Canal+ Décalé" : "CPLUSD"
++"Canal+ Sport" : "CPLUSS"
++"Canale 5" : "C5"
++"Show Turk" : "SHOT"
++"Turkmax Gurme" : "TMAX"
++"Kanal 7 Int" : "K7I"
++"Euro Star" : "EURO-S"
++"France 2" : "FRA2"
++"France 3" : "FRA3"
++"France 4" : "FRA4"
++"France 5" : "FRA5"
++"France Ô" : "FRAO"
++"CRIME + INVESTIGATION" : "CRIN"
++"Magenta Sport" : "MASPO"
++"DR2" : "DR2"
++"Sky Comedy" : "SKY-CO"
++"Sky Crime" : "SKY-CR"
++"Sky Cinema Special HD" : "SKYCS"
++"Sky Cinema Thriller" : "SKYTH"
++"Sky Sport F1" : "SKYF1"
++"MTV Brand New" : "MTV-N"
++"BILD TV" : "BILD"
++"Sky Documentaries" : "SKY-D"
++"Sky Nature" : "SKY-NA"
+diff -Nur tvspielfilm2xmltv-master/combinedchannels.map tvspielfilm2xmltv-latest/combinedchannels.map
+--- tvspielfilm2xmltv-master/combinedchannels.map	1970-01-01 01:00:00.000000000 +0100
++++ tvspielfilm2xmltv-latest/combinedchannels.map	2024-04-06 19:53:04.509091588 +0200
+@@ -0,0 +1,15 @@
++"RP" : "swr-rp.de"
++"BW" : "swr-bw.de"
++"SR" : "sr.de"
++"NI" : "ndr-ni.de"
++"HH" : "ndr-hh.de"
++"SH" : "ndr-sh.de"
++"MV" : "ndr-mv.de"
++"Franken" : "br-nord.de"
++"Schwaben & Altbayern" : "br-sued.de"
++"HB" : "radio-bremen-tv.de"
++"Berlin" : "rbb-berlin.de"
++"BB" : "rbb-brandenburg.de"
++"TH" : "mdr-thueringen.de"
++"Sachsen" : "mdr-sachsen.de"
++"ST" : "mdr-sachsen-anhalt.de"
+diff -Nur tvspielfilm2xmltv-master/Makefile tvspielfilm2xmltv-latest/Makefile
+--- tvspielfilm2xmltv-master/Makefile	2016-04-01 18:51:06.000000000 +0200
++++ tvspielfilm2xmltv-latest/Makefile	2024-04-06 18:08:23.311991689 +0200
+@@ -23,6 +23,8 @@
+ # Install the config
+ 	@install -d $(DESTDIR)/etc/$(GRABBER)
+ 	@install -b -m u+rw,go+r tvspielfilm2xmltv.ini $(DESTDIR)/etc/$(GRABBER)/tvspielfilm2xmltv.ini
++	@install -b -m u+rw,go+r channel.map $(DESTDIR)/etc/$(GRABBER)/channel.map
++	@install -b -m u+rw,go+r combinedchannels.map $(DESTDIR)/etc/$(GRABBER)/combinedchannels.map
+ # Install the man page
+ 	@install -d $(DESTDIR)$(MANDIR)/man1/
+ 	@gzip -c9 $(GRABBER).1 > $(DESTDIR)$(MANDIR)/man1/$(GRABBER).1.gz
+diff -Nur tvspielfilm2xmltv-master/tvsp2xmltv/defaults.py tvspielfilm2xmltv-latest/tvsp2xmltv/defaults.py
+--- tvspielfilm2xmltv-master/tvsp2xmltv/defaults.py	2024-04-06 14:52:21.784940831 +0200
++++ tvspielfilm2xmltv-latest/tvsp2xmltv/defaults.py	2024-04-06 19:23:01.686675091 +0200
+@@ -31,6 +31,8 @@
+ destination_file = config.get('DEFAULT', 'destination_file')
+ control_file = config.get('DEFAULT', 'control_file')
+ epgimages_dir = config.get('DEFAULT', 'epgimages_dir')
++channelmap_file = config.get('DEFAULT', 'channelmap_file')
++combined_channels_file = config.get('DEFAULT', 'combinedchannels_file')
+ remove_orphaned_images = config.getboolean('DEFAULT', 'remove_orphaned_images')
+ grab_today = config.getboolean('DEFAULT', 'grab_today')
+ number_of_images_per_show = config.getint('DEFAULT', 'number_of_images_per_show')
+@@ -56,230 +58,27 @@
+     'nickcomedy.de': ['NICK', 'CC']
+ }
+ 
+-channel_map = {
+-    "13th-street.de" : "13TH",
+-    "3plus.ch" : "3PLUS",
+-    "3sat.de" : "3SAT",
+-    "adult-channel.com" : "ADULT",
+-    "animal-planet.de" : "APLAN",
+-    "anixe.de" : "ANIXE",
+-    "ard-alpha.de" : "ALPHA",
+-    "ard.de" : "ARD",
+-    "arte.de" : "ARTE",
+-    "atv.at" : "ATV",
+-    "atv2.at" : "ATV2",
+-    "axntv.de" : "AXN",
+-    "bbc-entertainment.dk" : "BBC-E",
+-    "bbcworld.uk" : "BBC",
+-    "beate-uhse-tv.de" : "BUTV",
+-    "belgien.be" : "BE1",
+-    "bibeltv.de" : "BIBEL",
+-    "bloombergtv.de" : "BLM",
+-    "blue-movie-1.de" : "BLUM",
+-    "blue-movie-2.de" : "BLUM2",
+-    "blue-movie-3.de" : "BLUM3",
+-    "bongusto.de" : "GUSTO",
+-    "cartoon-network.de" : "C-NET",
+-    "classica.de" : "CLASS",
+-    "cnn.de" : "CNN",
+-    "comedy-central.de" : "CC",
+-    "deluxe-music.de" : "DMC",
+-    "discovery-channel.de" : "HDDIS",
+-    "disney-channel.de" : "DISNE",
+-    "disney-junior.de" : "DJUN",
+-    "disney-xd.de" : "DXD",
+-    "dmax.de" : "DMAX",
+-    "dr1.dk" : "DR1",
+-    "dw.de" : "DWTV",
+-    "e-entertainment-television.de" : "E!",
+-    "euronews.de" : "EURON",
+-    "eurosport-2.de" : "EURO2",
+-    "eurosport.de" : "EURO",
+-    "extreme-sports-channel.de" : "EX-SP",
+-    "fashiontv.fr" : "FATV",
+-    "fox-channel.de" : "FOX",
+-    "geo-television.de" : "GEO",
+-    "goldstar-tv.de" : "GOLD",
+-    "gute-laune-tv.de" : "LAUNE",
+-    "hamburg-1.de" : "HH1",
+-    "heimatkanal.de" : "HEIMA",
+-    "hessen3.de" : "HR",
+-    "history-hd.de" : "HISHD",
+-    "hse24.de" : "HSE",
+-    "jukebox.de" : "JUKE",
+-    "junior.de" : "JUNIO",
+-    "k-tv.at" : "KTV",
+-    "kabel-eins-classics.de" : "K1CLA",
+-    "kabel1.de" : "K1",
+-    "kika.de" : "KIKA",
+-    "kinowelt-tv.de" : "KINOW",
+-    "lust-pur.de" : "LUSTP",
+-    "mezzotv.fr" : "MEZZO",
+-    "motorvision-tv.de" : "MOVTV",
+-    "mtv-base.de" : "MTV-B",
+-    "mtv-dance.uk" : "MTV-D",
+-    "mtv-hits.uk" : "MTV-H",
+-    "mtv-live.uk" : "MTV-L",
+-    "mtv.de" : "MTV",
+-    "national-geographic-wild.de" : "N-GW",
+-    "national-geographic.de" : "N-GHD",
+-    "nautical-channel.com" : "NAUCH",
+-    "nickelodeon.de" : "NICK",
+-    "nicktoons.de" : "NICKT",
+-    "ntv.de" : "NTV",
+-    "one.de" : "FES",
+-    "orf-sport.at" : "ORFSP",
+-    "orf1.at" : "ORF1",
+-    "orf2.at" : "ORF2",
+-    "orf3.at" : "ORF3",
+-    "phoenix.de" : "PHOEN",
+-    "planet.de" : "PLANE",
+-    "playboy.de" : "PBOY",
+-    "prosieben-fun.de" : "PRO7F",
+-    "prosieben-maxx.de" : "PRO7M",
+-    "prosieben.de" : "PRO7",
+-    "puls4.at" : "PULS4",
+-    "qvc.de" : "QVC",
+-    "rcktv.de" : "RCK",
+-    "ric.de" : "RIC",
+-    "romance-tv.de" : "ROM",
+-    "rtl-crime.de" : "RTL-C",
+-    "rtl-living.de" : "RTL-L",
+-    "rtl-nitro.de" : "RTL-N",
+-    "rtl-passion.de" : "PASS",
+-    "rtl.de" : "RTL",
+-    "rtl2.de" : "RTL2",
+-    "sat1-emotions.de" : "SAT1E",
+-    "sat1-gold.de" : "SAT1G",
+-    "sat1.de" : "SAT1",
+-    "sci-fi.de" : "SCIFI",
+-    "servustv.at" : "SERVU",
+-    "sf1.ch" : "SF1",
+-    "sf2.ch" : "SF2",
+-    "silverline-tv.de" : "SILVE",
+-    "sixx.de" : "SIXX",
+-    "sky-action.de" : "SKY-A",
+-    "sky-atlantic-hd.de" : "SKYAT",
+-    "sky-cinema-1.de" : "CIN1",
+-    "sky-cinema-24.de" : "CIN24",
+-    "sky-cinema-hits.de" : "SKY-H",
+-    "sky-cinema.de" : "CIN",
+-    "sky-comedy.de" : "SKY-C",
+-    "sky-emotion.de" : "SKY-E",
+-    "sky-fussball-bundesliga.de" : "BULI",
+-    "sky-krimi.de" : "SKY-K",
+-    "sky-nostalgie.de" : "SKY-N",
+-    "sky-select.de" : "SKY-S",
+-    "sky-sport-1-hd.de" : "HDSPO",
+-    "sky-sport-2-hd.de" : "SHD2",
+-    "sky-sport-austria.at" : "SPO-A",
+-    "sky-sport-news-hd.de" : "SNHD",
+-    "sonnenklartv.de" : "SKLAR",
+-    "sony-entertainmen.tv" : "SONY",
+-    "spiegel-geschichte.de" : "SP-GE",
+-    "spiegel-tv-wissen.de" : "SPTVW",
+-    "sport1.de" : "SPORT",
+-    "sport1plus.de" : "S1PLU",
+-    "sportdigitaltv.de" : "SPO-D",
+-    "star-tv.ch" : "STTV",
+-    "superrtl.de" : "SUPER",
+-    "tagesschau24.de" : "TAG24",
+-    "tele5.de" : "TELE5",
+-    "tlc.de" : "TLC",
+-    "tnt-film.de" : "TNT-F",
+-    "tnt-serie.de" : "TNT-S",
+-    "tracetv.fr" : "TRACE",
+-    "tv-berlin.de" : "TVB",
+-    "tv-muenchen.de" : "TVM",
+-    "tv2.tr" : "TV2",
+-    "tv5-monde.fr" : "TV5",
+-    "universal-channel.de" : "UNIVE",
+-    "vh1-classic.uk" : "VH1",
+-    "vox.de" : "VOX",
+-    "welt-der-wunder-tv.de" : "WDWTV",
+-    "zdf.de" : "ZDF",
+-    "zdfinfo.de" : "ZINFO",
+-    "zdfneo.de" : "2NEO",
+-
+-    "123.tv" : "123TV",
+-    "al-jazeera.com" : "ALJAZ",
+-    "atv-avrupa.de" : "ATV-A",
+-    "auto-motor-sport.de" : "AMS",
+-    "bbc-four.gb" : "BBC4",
+-    "bbc-news.gb" : "BBC-N",
+-    "bbc-one.gb" : "BBC1",
+-    "bbc-two.gb" : "BBC2",
+-    "br-nord.de" : "BR",
+-    "br-sued.de" : "BR",
+-    "channel21.de" : "CH21",
+-    "cnbc.com" : "CNBC",
+-    "dazn.de" : "DAZN",
+-    "deutsches-musik-fernsehen.de" : "DMF",
+-    "eo.de" : "EOTV",
+-    "esports1.de" : "ES1",
+-    "euro-d.de" : "EURO-D",
+-    "euronews.gb" : "ENGB",
+-    "fine-living-network.com" : "FLN",
+-    "fixundfoxi.de" : "FFTV",
+-    "france24.com" : "FR24E",
+-    "france24.fr" : "FR24F",
+-    "health.de" : "HEALTH",
+-    "home-garden-tv.de" : "HGTV",
+-    "kabel-eins-doku.de" : "K1DOKU",
+-    "leipzig-fernsehen.de" : "LEITV",
+-    "marcopolo.de" : "MAPO",
+-    "mdr-sachsen-anhalt.de" : "MDR",
+-    "mdr-sachsen.de" : "MDR",
+-    "mdr-thueringen.de" : "MDR",
+-    "n24-doku.de" : "N24DOKU",
+-    "ndr-hh.de" : "N3",
+-    "ndr-mv.de" : "N3",
+-    "ndr-ni.de" : "N3",
+-    "ndr-sh.de" : "N3",
+-    "nhk-world.eu" : "NHK",
+-    "nickjr.de" : "NICKJ",
+-    "now.us" : "NOWUS",
+-    "oe24.de" : "OE24TV",
+-    "plus-acht.de" : "PULS8",
+-    "qvc-plus.de" : "QVCP",
+-    "radio-bremen-tv.de" : "N3",
+-    "rbb-berlin.de" : "RBB",
+-    "rbb-brandenburg.de" : "RBB",
+-    "rhein-neckar-fernsehen.de" : "RNF",
+-    "rheinmaintv.de" : "RMTV",
+-    "rocket-beans-tv.de" : "RBTV",
+-    "rtlplus.de" : "RTLPL",
+-    "sky-family.de" : "SKY-F",
+-    "sky1.de" : "SKY1",
+-    "sr.de" : "SWR",
+-    "swr-bw.de" : "SWR",
+-    "swr-rp.de" : "SWR",
+-    "tnt-comedy.de" : "TNT-C",
+-    "toggo-plus.de" : "TOGGO",
+-    "travelxp-4k.de" : "TRAVELXP",
+-    "uhd1.eu" : "UHD1",
+-    "voxup.de" : "VOXUP",
+-    "wdr-aachen.de" : "WDR",
+-    "wdr-bielefeld.de" : "WDR",
+-    "wdr-bonn.de" : "WDR",
+-    "wdr-dortmund.de" : "WDR",
+-    "wdr-duesseldorf.de" : "WDR",
+-    "wdr-duisburg.de"    : "WDR",
+-    "wdr-essen.de"       : "WDR",
+-    "wdr-koeln.de"       : "WDR",
+-    "wdr-muenster.de"    : "WDR",
+-    "wdr-siegen.de"    : "WDR",
+-    "wdr-wuppertal.de" : "WDR",
+-    "welt.de"             : "WELT",
+-    "zee1.de"          : "ZEE-1"
+-}
+-
++channel_map = {}
++with open(channelmap_file, "r") as fp:
++    for i in fp.readlines():
++        tmp = i.split(": ")
++        try:
++            channel_map[tmp[0].strip("\"\' ")] = tmp[1].strip("\"\',\n ")
++        except: pass
++    
+ 
+ def get_channel_key(value):
+     for name, val in channel_map.items():
+         if val == value:
+             return name
+ 
++combined_regional_channels = {}
++with open(combined_channels_file, "r") as fp:
++    for i in fp.readlines():
++        tmp = i.split(": ")
++        try:
++            combined_regional_channels[tmp[0].strip("\"\' ")+": "] = tmp[1].strip("\"\',\n ")
++        except: pass
+ 
+ def write_controlfile(grab_time, grab_days):
+     print(('Writing Controlfile [{0}, {1}, {2}]'.format(control_file, grab_time, grab_days)))
+@@ -339,6 +138,7 @@
+ 
+     channelids = [x for x in tvsp_ids if len(x) > 0]
+ 
++    print("CAUTION: list from https://live.tvspielfilm.de/static/content/channel-list/livetv does not reflect changes to regional programs!")
+     print("The following channels included in the channel map are NOT provided by the server:")
+     for name, val in list(channel_map.items()):
+         if val not in channelids:
+diff -Nur tvspielfilm2xmltv-master/tvsp2xmltv/tvsGrabber.py tvspielfilm2xmltv-latest/tvsp2xmltv/tvsGrabber.py
+--- tvspielfilm2xmltv-master/tvsp2xmltv/tvsGrabber.py	2020-07-06 18:48:50.408301610 +0200
++++ tvspielfilm2xmltv-latest/tvsp2xmltv/tvsGrabber.py	2022-10-25 17:34:15.863984506 +0200
+@@ -9,7 +9,6 @@
+ from . import logger
+ from . import pictureLoader
+ 
+-
+ class TvsGrabber(object):
+     def __init__(self):
+         self.headers = {
+@@ -86,12 +85,22 @@
+ 
+     def __grab_day(self, date, tvsp_id, channel_id):
+         retry = 0
+-        data = self._get_channel(date, tvsp_id)
++        data = self._get_channel(date, tvsp_id)  # holt daten eines channel als json
+         for s in data or []:
+         # Im Falle eines Fehlers beim grabben
+             try:
+-                prog = model.Programme(s, channel_id, self.pictures)
+-                self.xmltv_doc.append_element(prog)
++                prog = model.Programme(s, channel_id, self.pictures) # erstellt ein Programme-Objekt
++                # skip regional program not belonging to this channel
++                append = True
++                if (': ' in prog.title_de):
++                    for txt in defaults.combined_regional_channels.keys():
++                      if (prog.title_de.startswith(txt)):
++                         if (prog.channel_id == defaults.combined_regional_channels[txt]):
++                             prog.title_de = prog.title_de[len(txt):]
++                         else:
++                             append = False
++                if (append):
++                    self.xmltv_doc.append_element(prog)
+             except Exception as e:
+                 logger.log("Failed to fetch Channel {0} at {1}".format(tvsp_id, date), logger.WARNING)
+                 logger.log(e, logger.WARNING)
+diff -Nur tvspielfilm2xmltv-master/tvspielfilm2xmltv.ini tvspielfilm2xmltv-latest/tvspielfilm2xmltv.ini
+--- tvspielfilm2xmltv-master/tvspielfilm2xmltv.ini	2016-04-01 18:51:06.000000000 +0200
++++ tvspielfilm2xmltv-latest/tvspielfilm2xmltv.ini	2024-04-06 17:15:15.400973478 +0200
+@@ -2,6 +2,8 @@
+ destination_file = /var/lib/epgsources/tvspielfilm2xmltv.xmltv
+ control_file = /var/lib/epgsources/tvspielfilm2xmltv
+ epgimages_dir = /var/lib/epgsources/tvspielfilm2xmltv-img
++channelmap_file = /etc/tvspielfilm2xmltv/channel.map
++combinedchannels_file = /etc/tvspielfilm2xmltv/combinedchannels.map
+ 
+ # Should the grabber remove orphandes images, this is normaly done by the vdr itself
+ remove_orphaned_images = False

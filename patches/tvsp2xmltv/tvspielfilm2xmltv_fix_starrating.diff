@@ -1,0 +1,12 @@
+--- tvsp2xmltv/model.py.bak	2020-06-18 11:48:15.707018588 +0200
++++ tvsp2xmltv/model.py	2023-02-24 14:29:04.849809544 +0100
+@@ -133,7 +133,8 @@
+             tmp.text = defaults.sart_map[self.sart_id]
+ 
+         if self.star_rating in defaults.thumb_id_map:
+-            tmp = SubElement(programme, 'star-rating')
++            starrating = SubElement(programme, 'star-rating')
++            tmp = SubElement(starrating, 'value')
+             tmp.text = '{0} / 3'.format(defaults.thumb_id_map[self.star_rating])
+ 
+         if self.programme_length and len(self.programme_length.split('/')) > 0:

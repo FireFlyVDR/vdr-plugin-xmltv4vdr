@@ -1,0 +1,266 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the vdr-xmltv4vdr package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: vdr-xmltv4vdr 0.4.3-Beta\n"
+"Report-Msgid-Bugs-To: <see README>\n"
+"POT-Creation-Date: 2024-07-13 14:07+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "director"
+msgstr ""
+
+msgid "actor"
+msgstr ""
+
+msgid "writer"
+msgstr ""
+
+msgid "adapter"
+msgstr ""
+
+msgid "producer"
+msgstr ""
+
+msgid "composer"
+msgstr ""
+
+msgid "editor"
+msgstr ""
+
+msgid "presenter"
+msgstr ""
+
+msgid "commentator"
+msgstr ""
+
+msgid "guest"
+msgstr ""
+
+msgid "country"
+msgstr ""
+
+msgid "year"
+msgstr ""
+
+msgid "original title"
+msgstr ""
+
+msgid "category"
+msgstr ""
+
+msgid "season"
+msgstr ""
+
+msgid "episode"
+msgstr ""
+
+msgid "overall episode"
+msgstr ""
+
+msgid "parental rating"
+msgstr ""
+
+msgid "star rating"
+msgstr ""
+
+msgid "review"
+msgstr ""
+
+msgid "import is currently active"
+msgstr ""
+
+msgid "no modififcations possible"
+msgstr ""
+
+msgid "order of EPG elements"
+msgstr ""
+
+msgid "automatic wakeup"
+msgstr ""
+
+msgid "fix duplicate Title in Shorttext"
+msgstr ""
+
+msgid "last Episodes Change"
+msgstr ""
+
+msgid "EPG sources (last successful run)"
+msgstr ""
+
+msgid "no EPG sources defined in"
+msgstr ""
+
+msgid "unknown"
+msgstr ""
+
+msgid "enabled"
+msgstr ""
+
+msgid "disabled"
+msgstr ""
+
+msgid "EPG source channels"
+msgstr ""
+
+msgid "Button$Start Import"
+msgstr ""
+
+msgid "Button$Log"
+msgstr ""
+
+msgid "Button$Edit"
+msgstr ""
+
+msgid "sequence"
+msgstr ""
+
+msgid "Button$Up"
+msgstr ""
+
+msgid "Button$Down"
+msgstr ""
+
+msgid "description"
+msgstr ""
+
+msgid "credits"
+msgstr ""
+
+msgid "country and year"
+msgstr ""
+
+msgid "season and episode"
+msgstr ""
+
+msgid "rating"
+msgstr ""
+
+msgid "starrating"
+msgstr ""
+
+msgid "update on"
+msgstr ""
+
+msgid "update at"
+msgstr ""
+
+msgid "days in advance"
+msgstr ""
+
+msgid "pin"
+msgstr ""
+
+msgid "download pictures"
+msgstr ""
+
+msgid "movies only"
+msgstr ""
+
+msgid "series only"
+msgstr ""
+
+msgid "movies + series only"
+msgstr ""
+
+msgid "always"
+msgstr ""
+
+msgid "single line"
+msgstr ""
+
+msgid "multiline"
+msgstr ""
+
+msgid "EPG source"
+msgstr ""
+
+msgid "EPG source channel mappings"
+msgstr ""
+
+msgid "EPG source channel options"
+msgstr ""
+
+msgid "title"
+msgstr ""
+
+msgid "short text"
+msgstr ""
+
+msgid "country and date"
+msgstr ""
+
+#. TRANSLATORS: note the leading blank!
+msgid " director"
+msgstr ""
+
+#. TRANSLATORS: note the leading blank!
+msgid " actors"
+msgstr ""
+
+#. TRANSLATORS: note the leading blank!
+msgid " other crew"
+msgstr ""
+
+#. TRANSLATORS: note the leading blank!
+msgid " parental rating as text"
+msgstr ""
+
+#. TRANSLATORS: note the leading blank!
+msgid " display"
+msgstr ""
+
+msgid "Button$Reset"
+msgstr ""
+
+msgid "Button$Copy"
+msgstr ""
+
+msgid "Button$Unmap"
+msgstr ""
+
+msgid "Button$Map"
+msgstr ""
+
+msgid "Reset channel options of all channels?"
+msgstr ""
+
+msgid "Copy options to all channels?"
+msgstr ""
+
+msgid "Button$Choose"
+msgstr ""
+
+msgid "Button$Errors"
+msgstr ""
+
+msgid "Button$Info"
+msgstr ""
+
+msgid "Button$Debug"
+msgstr ""
+
+msgid "next execution"
+msgstr ""
+
+msgid "active"
+msgstr ""
+
+msgid "log"
+msgstr ""
+
+msgid "Imports EPG data in XMLTV format into VDR"
+msgstr ""
+
+msgid "xmltv4vdr plugin still busy"
+msgstr ""

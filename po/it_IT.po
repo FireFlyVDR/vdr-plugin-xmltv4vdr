@@ -1,0 +1,265 @@
+# This file is distributed under the same license as the xmltv2vdr package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: vdr\n"
+"Report-Msgid-Bugs-To: <see README>\n"
+"POT-Creation-Date: 2024-07-10 18:14+0200\n"
+"PO-Revision-Date: 2011-03-05 15:45+0100\n"
+"Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+"Language-Team:  <vdr@linuxtv.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Poedit-Language: Italian\n"
+"X-Poedit-Country: ITALY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+msgid "director"
+msgstr "Regista"
+
+msgid "actor"
+msgstr "Attore"
+
+msgid "writer"
+msgstr "Scrittore"
+
+msgid "adapter"
+msgstr "Adattatore"
+
+msgid "producer"
+msgstr "Produttore"
+
+msgid "composer"
+msgstr "Compositore"
+
+msgid "editor"
+msgstr "Editore"
+
+msgid "presenter"
+msgstr "Presentatore"
+
+msgid "commentator"
+msgstr "Commentatore"
+
+msgid "guest"
+msgstr "Ospite"
+
+msgid "country"
+msgstr "Paese"
+
+msgid "year"
+msgstr "Anno"
+
+msgid "original title"
+msgstr "Titolo originale"
+
+msgid "category"
+msgstr "Categoria"
+
+msgid "season"
+msgstr ""
+
+msgid "episode"
+msgstr ""
+
+msgid "overall episode"
+msgstr ""
+
+msgid "parental rating"
+msgstr ""
+
+msgid "star rating"
+msgstr ""
+
+msgid "review"
+msgstr "Anteprima"
+
+msgid "import is currently active"
+msgstr ""
+
+msgid "no modififcations possible"
+msgstr ""
+
+msgid "order of EPG elements"
+msgstr ""
+
+msgid "automatic wakeup"
+msgstr "Risveglio automatico"
+
+msgid "fix duplicate Title in Shorttext"
+msgstr ""
+
+msgid "last Episodes Change"
+msgstr ""
+
+msgid "EPG sources (last successful run)"
+msgstr ""
+
+msgid "no EPG sources defined in"
+msgstr ""
+
+msgid "unknown"
+msgstr ""
+
+msgid "enabled"
+msgstr ""
+
+msgid "disabled"
+msgstr ""
+
+msgid "EPG source channels"
+msgstr "Canali sorgente EPG"
+
+msgid "Button$Start Import"
+msgstr ""
+
+msgid "Button$Log"
+msgstr ""
+
+msgid "Button$Edit"
+msgstr "Modifica"
+
+msgid "sequence"
+msgstr ""
+
+msgid "Button$Up"
+msgstr "Su"
+
+msgid "Button$Down"
+msgstr "Giu"
+
+msgid "description"
+msgstr "Testo completo"
+
+msgid "credits"
+msgstr "Crediti"
+
+msgid "country and year"
+msgstr ""
+
+msgid "season and episode"
+msgstr ""
+
+msgid "rating"
+msgstr "Valutazione"
+
+msgid "starrating"
+msgstr ""
+
+msgid "update on"
+msgstr ""
+
+msgid "update at"
+msgstr "Ora esecuzione"
+
+msgid "days in advance"
+msgstr "Giorni in anticipo"
+
+msgid "pin"
+msgstr "Pin"
+
+msgid "download pictures"
+msgstr ""
+
+msgid "movies only"
+msgstr ""
+
+msgid "series only"
+msgstr ""
+
+msgid "movies + series only"
+msgstr ""
+
+msgid "always"
+msgstr ""
+
+msgid "single line"
+msgstr ""
+
+msgid "multiline"
+msgstr ""
+
+msgid "EPG source"
+msgstr ""
+
+msgid "EPG source channel mappings"
+msgstr "Mappature canali sorgente EPG"
+
+msgid "EPG source channel options"
+msgstr "Opzioni canali sorgente EPG"
+
+msgid "title"
+msgstr ""
+
+msgid "short text"
+msgstr "Testo breve"
+
+msgid "country and date"
+msgstr "Paese e data"
+
+#. TRANSLATORS: note the leading blank!
+msgid " director"
+msgstr " Regia"
+
+#. TRANSLATORS: note the leading blank!
+msgid " actors"
+msgstr " Attore"
+
+#. TRANSLATORS: note the leading blank!
+msgid " other crew"
+msgstr " altro gruppo"
+
+#. TRANSLATORS: note the leading blank!
+msgid " parental rating as text"
+msgstr ""
+
+#. TRANSLATORS: note the leading blank!
+msgid " display"
+msgstr ""
+
+msgid "Button$Reset"
+msgstr ""
+
+msgid "Button$Copy"
+msgstr ""
+
+msgid "Button$Unmap"
+msgstr "Non mappare"
+
+msgid "Button$Map"
+msgstr "Mappare"
+
+msgid "Reset channel options of all channels?"
+msgstr ""
+
+msgid "Copy options to all channels?"
+msgstr ""
+
+msgid "Button$Choose"
+msgstr "Scegli"
+
+msgid "Button$Errors"
+msgstr ""
+
+msgid "Button$Info"
+msgstr ""
+
+msgid "Button$Debug"
+msgstr ""
+
+msgid "next execution"
+msgstr ""
+
+msgid "active"
+msgstr ""
+
+msgid "log"
+msgstr ""
+
+msgid "Imports EPG data in XMLTV format into VDR"
+msgstr ""
+
+msgid "xmltv4vdr plugin still busy"
+msgstr ""

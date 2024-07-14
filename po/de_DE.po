@@ -1,0 +1,262 @@
+# This file is distributed under the same license as the xmltv2vdr package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: vdr\n"
+"Report-Msgid-Bugs-To: <see README>\n"
+"POT-Creation-Date: 2024-07-10 18:14+0200\n"
+"PO-Revision-Date: 2024-07-13 13:59+0200\n"
+"Last-Translator: Christoph Haubrich <christoph1.haubrich@arcor.de>\n"
+"Language-Team: <vdr@linuxtv.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "director"
+msgstr "Regie"
+
+msgid "actor"
+msgstr "Darsteller"
+
+msgid "writer"
+msgstr "Drehbuch"
+
+msgid "adapter"
+msgstr "Adapter"
+
+msgid "producer"
+msgstr "Produzent"
+
+msgid "composer"
+msgstr "Musik"
+
+msgid "editor"
+msgstr "Schnitt"
+
+msgid "presenter"
+msgstr "Moderation"
+
+msgid "commentator"
+msgstr "Bericht"
+
+msgid "guest"
+msgstr "Gäste"
+
+msgid "country"
+msgstr "Land"
+
+msgid "year"
+msgstr "Jahr"
+
+msgid "original title"
+msgstr "Originaltitel"
+
+msgid "category"
+msgstr "Kategorie"
+
+msgid "season"
+msgstr "Staffel"
+
+msgid "episode"
+msgstr "Folge"
+
+msgid "overall episode"
+msgstr "Folge insgesamt"
+
+msgid "parental rating"
+msgstr "Freigabe ab"
+
+msgid "star rating"
+msgstr "Sterne-Wertung"
+
+msgid "review"
+msgstr "Kritik"
+
+msgid "import is currently active"
+msgstr "Import läuft momentan"
+
+msgid "no modififcations possible"
+msgstr "Keine Änderungen möglich"
+
+msgid "order of EPG elements"
+msgstr "Reihenfolge der EPG-Elemente"
+
+msgid "automatic wakeup"
+msgstr "automatisch Aufwachen"
+
+msgid "fix duplicate Title in Shorttext"
+msgstr "doppelten Titel in Shorttext korr."
+
+msgid "last Episodes Change"
+msgstr "letzte Änderung Episodes"
+
+msgid "EPG sources (last successful run)"
+msgstr "EPG Quellen (letzter erfolgreicher Lauf)"
+
+msgid "no EPG sources defined in"
+msgstr "keine EPG-Quellen definiert in"
+
+msgid "unknown"
+msgstr "unbekannt"
+
+msgid "enabled"
+msgstr "aktiv"
+
+msgid "disabled"
+msgstr "inaktiv"
+
+msgid "EPG source channels"
+msgstr "EPG Quell-Kanäle"
+
+msgid "Button$Start Import"
+msgstr "Starte Import"
+
+msgid "Button$Log"
+msgstr "Log"
+
+msgid "Button$Edit"
+msgstr "editieren"
+
+msgid "sequence"
+msgstr "Reihenfolge"
+
+msgid "Button$Up"
+msgstr "hoch"
+
+msgid "Button$Down"
+msgstr "runter"
+
+msgid "description"
+msgstr "Beschreibung"
+
+msgid "credits"
+msgstr "Mitwirkende"
+
+msgid "country and year"
+msgstr "Land und Jahr"
+
+msgid "season and episode"
+msgstr "Staffel und Episode"
+
+msgid "rating"
+msgstr "Freigabe"
+
+msgid "starrating"
+msgstr "Wertung"
+
+msgid "update on"
+msgstr "Ausführung am"
+
+msgid "update at"
+msgstr "Ausführung um"
+
+msgid "days in advance"
+msgstr "Anzahl Tage"
+
+msgid "pin"
+msgstr "Pin"
+
+msgid "download pictures"
+msgstr "Bilder runterladen"
+
+msgid "movies only"
+msgstr "nur Filme"
+
+msgid "series only"
+msgstr "nur Serien"
+
+msgid "movies + series only"
+msgstr "nur Filme & Serien"
+
+msgid "always"
+msgstr "immer"
+
+msgid "single line"
+msgstr "einzeilig"
+
+msgid "multiline"
+msgstr "mehrzeilig"
+
+msgid "EPG source"
+msgstr "EPG Quelle"
+
+msgid "EPG source channel mappings"
+msgstr "EPG Quellkanalzuordnungen"
+
+msgid "EPG source channel options"
+msgstr "EPG Quellkanal Optionen"
+
+msgid "title"
+msgstr "Titel"
+
+msgid "short text"
+msgstr "Kurztext"
+
+msgid "country and date"
+msgstr "Ort und Jahr"
+
+#. TRANSLATORS: note the leading blank!
+msgid " director"
+msgstr " Regisseur"
+
+#. TRANSLATORS: note the leading blank!
+msgid " actors"
+msgstr " Darsteller"
+
+#. TRANSLATORS: note the leading blank!
+msgid " other crew"
+msgstr " Sonstige"
+
+#. TRANSLATORS: note the leading blank!
+msgid " parental rating as text"
+msgstr " Freigabe als Text"
+
+#. TRANSLATORS: note the leading blank!
+msgid " display"
+msgstr " Darstellung"
+
+msgid "Button$Reset"
+msgstr "rücksetzen"
+
+msgid "Button$Copy"
+msgstr "kopieren"
+
+msgid "Button$Unmap"
+msgstr "entfernen"
+
+msgid "Button$Map"
+msgstr "hinzufügen"
+
+msgid "Reset channel options of all channels?"
+msgstr "Optionen für alle Kanäle zurück setzen?"
+
+msgid "Copy options to all channels?"
+msgstr "Optionen auf alle Kanäle kopieren?"
+
+msgid "Button$Choose"
+msgstr "auswählen"
+
+msgid "Button$Errors"
+msgstr "Fehler"
+
+msgid "Button$Info"
+msgstr "Info"
+
+msgid "Button$Debug"
+msgstr "Debug"
+
+msgid "next execution"
+msgstr "Nächste Ausführung"
+
+msgid "active"
+msgstr "aktiv"
+
+msgid "log"
+msgstr "Logdatei"
+
+msgid "Imports EPG data in XMLTV format into VDR"
+msgstr "Import von EPG-Daten im XMLTV-Format"
+
+msgid "xmltv4vdr plugin still busy"
+msgstr "xmltv4vdr plugin ist noch aktiv"
