@@ -585,7 +585,7 @@ int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
       //else if (!isempty(XMLTVConfig.EpisodesDir()))
       //   xtEvent.FetchSeasonEpisode();
 
-      xmlErrorPtr xmlErr = xmlGetLastError();
+      const xmlError* xmlErr = xmlGetLastError();
       if (xmlErr && xmlErr->code)
       {
          esyslogs(this, "xmlError: %s", xmlErr->message);

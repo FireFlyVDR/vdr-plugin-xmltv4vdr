@@ -57,7 +57,7 @@ int cConfigLine::Compare(const cListObject &ListObject) const
       if (!sl->source)
          return 1;
       result = strcasecmp(source, sl->source);
-      if (result = 0) 
+      if (result == 0)
          result = strcasecmp(name, sl->name);
    }
    return result;

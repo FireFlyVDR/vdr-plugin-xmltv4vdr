@@ -489,12 +489,12 @@ bool cEpisodesDB::QueryEpisode(cXMLTVEvent *xtEvent)
                episodeOverall = sqlite3_column_int(stmtQueryAllEpisodes, 3);
                episodeName = dbEpisode;
             }
-            delete s2;
+            delete[] s2;
             SQLrc1 = sqlite3_step(stmtQueryAllEpisodes);
          }
          sqlite3_clear_bindings(stmtQueryAllEpisodes);
          sqlite3_reset(stmtQueryAllEpisodes);
-         delete s1;
+         delete[] s1;
 
          if (found) {
             xtEvent->SetSeason(season);
@@ -537,12 +537,12 @@ bool cEpisodesDB::QueryEpisode(cXMLTVEvent *xtEvent)
                episodeOverall = sqlite3_column_int(stmtQueryAllEpisodes, 3);
                episodeName = dbEpisode;
             }
-            delete s2;
+            delete[] s2;
             SQLrc1 = sqlite3_step(stmtQueryAllEpisodes);
          }
          sqlite3_clear_bindings(stmtQueryAllEpisodes);
          sqlite3_reset(stmtQueryAllEpisodes);
-         delete s1;
+         delete[] s1;
 
          if (found) {
             xtEvent->SetSeason(season);
@@ -896,7 +896,7 @@ int cXMLTVDB::UnlinkPictures(const cXMLTVStringList *Pics, const char *ChannelID
 bool cXMLTVDB::AddOrphanedPicture(const char *Source, const char *Picture)
 {
    bool added = false;
-   if (added = (-1 == orphanedPictures.Find(Source, Picture)))
+   if ((added = (-1 == orphanedPictures.Find(Source, Picture))))
       orphanedPictures.AppendStrings(Source, Picture);
 
    return added;
@@ -1357,7 +1357,7 @@ bool cXMLTVDB::CheckConsistency(bool Fix, cXMLTVStringList *CheckResult)
    CheckResult->Clear();
    cString msg = cString::sprintf("CheckConsistency: result of last run at %s", *TimeToString(time(NULL)));
    CheckResult->Append(strdup(*msg));
-   if (success = OpenDBConnection())
+   if ((success = OpenDBConnection()))
    {  // check for all pics if they are referenced in the DB
       // build list of all pictures per source referenced in DB 
       // loop over image dir of source and check if picture is in list, otherwise report it or delete it if fix==true
@@ -1367,7 +1367,7 @@ bool cXMLTVDB::CheckConsistency(bool Fix, cXMLTVStringList *CheckResult)
 
          sqlite3_stmt *stmt;
          int SQLrc = sqlite3_prepare_v2(DBHandle, *sqlSelect, -1, &stmt, NULL);
-         if (success = CheckSQLiteSuccess(SQLrc, __LINE__, "CheckConsistency()"))
+         if ((success = CheckSQLiteSuccess(SQLrc, __LINE__, "CheckConsistency()")))
          {  // get one row/pic line
             cXMLTVStringList picList;
             SQLrc = sqlite3_step(stmt);
@@ -1445,7 +1445,7 @@ bool cXMLTVDB::CheckConsistency(bool Fix, cXMLTVStringList *CheckResult)
                   cString sqlSelect = cString::sprintf("SELECT src, starttime, pics FROM epg WHERE channelid='%s' AND eventid=%u;", channelID, eventid);
                   sqlite3_stmt *stmt2;
                   int SQLrc = sqlite3_prepare_v2(DBHandle, *sqlSelect, -1, &stmt2, NULL);
-                  if (success = CheckSQLiteSuccess(SQLrc, __LINE__, "CheckConsistency()"))
+                  if ((success = CheckSQLiteSuccess(SQLrc, __LINE__, "CheckConsistency()")))
                   {  // get one row/pic line
                      SQLrc = sqlite3_step(stmt2);
                      int entries = 0;

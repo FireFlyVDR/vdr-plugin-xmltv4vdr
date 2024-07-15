@@ -18,7 +18,7 @@ links to pictures. The file(s) in XMLTV format must be provided by one (or
 more) additional grabber which are not part of this plugin.
 The elements to be imported can be configured selectivly by channel and type of
 event (movies, series or all).
-Additionally the episode info from eplists.constabel.net is optionally
+Additionally the episode info from www.eplists.de is optionally
 integrated.
 
 Please be aware that depending on the EPG data quality not in every situation
@@ -49,14 +49,14 @@ Installation and Configuration:
 
 Episode Lists
 -------------
-The plugin supports optionally the episode lists of eplists.constabel.net.
+The plugin supports optionally the episode lists of www.eplists.de.
 It reads a local directory with episode files into a SQLite DB
 for faster queries before each update of external sources.
 UTF-8 format is mendatory for the episode files.
 
 To enable episode lists download the files regularly into an episode directory
 via cron, e.g.:
-   05 01 * * * vdr /usr/bin/svdrpsend-ng.pl -d eplists.constabel.net -p 2006 -c -o /srv/vdr/episodes TGET newer than $(($(date '+\%s')-$(stat -c %Y \"$(ls -t1 /srv/vdr/episodes/*|head -n 1)\")+3600)) seconds >/var/log/eplists 2>&1
+   05 01 * * * vdr /usr/bin/svdrpsend-ng.pl -d www.eplists.de -p 2006 -c -o /srv/vdr/episodes TGET newer than $(($(date '+\%s')-$(stat -c %Y \"$(ls -t1 /srv/vdr/episodes/*|head -n 1)\")+3600)) seconds >/var/log/eplists 2>&1
 and define in xmltv4xml.conf the location of the local episode DB (--episodesdb=DIR)
 If the path of the episode diretory should be different from the default
 <Plugin-ResourceDir>/episodes you can define it with the --episodes parameter.
@@ -68,6 +68,19 @@ can be read by any other plugin. or e.g. svdrpsend LSTE <channel No> at <timesta
 215-@ <xmltv4vdr><season>53</season><episode>16</episode><episodeOverall>1199</episodeOverall></xmltv4vdr>
 ....
 
+EPG images
+----------
+Dowloaded EPG images are stored in <EPGsources-Dir>/<epg-source>-img. If a
+matching event is found they are soft-linked to the cache dir (default:
+<Plugin-CacheDir>/epgimages) in the format <channeld-ID>-<Event-ID>_<Number>.jpg
+where number begins with 0. Skin plugins can acces them with this schema to show
+them in EPG events.
+
+To have the images also available in recordings they need to be copied by a
+recording hook script into the recording folder e.g. with the script provided
+here:
+https://www.vdr-portal.de/forum/index.php?thread/128217-0-6-fehler-in-usr-share-vdr-recording-hooks-r60copy-epgimage/&postID=1262719#post1262719
+
 
 Config files
 ============
@@ -78,7 +91,7 @@ contains all parameters the plugin supports:
 #  -d FILE,  --epgdatabase=FILE   write the EPG database into the given FILE
 #                                 default: <Plugin-CacheDir>/xmltv4vdr_EPG.db
 
-#  -i DIR,   --images=DIR         location where EPG images are stored
+#  -i DIR,   --images=DIR         location where links to EPG images are stored
 #                                 default: <Plugin-CacheDir>/epgimages
 
 #  -s DIR,   --epgsources=DIR     location where EPG Sources are stored

@@ -44,7 +44,7 @@ bool cXMLTVStringList::AppendUnique(const char* String)
    if (!isempty(String)) {
       char *newString = strdup(String);
       compactspace(newString);
-      if (added = (-1 == Find(newString)))
+      if ((added = (-1 == Find(newString))))
          Append(newString);
       else
          free(newString);
@@ -894,7 +894,7 @@ cString StringNormalize(const char *String)
       int l = Utf8CharLen(s);
       bool found = false;
       for (uint c = 0; !found && c < sizeof(normalizeTable)/sizeof(struct sNormalize); c++) {
-         if (found = 0 == strncmp(s, normalizeTable[c].cSymbol, normalizeTable[c].lSymbol)) {
+         if ((found = 0 == strncmp(s, normalizeTable[c].cSymbol, normalizeTable[c].lSymbol))) {
             if (normalizeTable[c].rep != 0)
                *d++ = normalizeTable[c].rep;
          }
@@ -926,7 +926,7 @@ cString StringNormalize(const char *String)
       {
          for (uint c = 0; !found && c < sizeof(umlautTable)/sizeof(struct sUmlaut); c++) {
             if (!strncmp(s, umlautTable[c].cSymbol, 2)) {
-               strncpy(s, umlautTable[c].replacement, 2);
+               memcpy(s, umlautTable[c].replacement, 2);
             }
          }
          s += l;
@@ -945,11 +945,12 @@ cString StringCleanup(const char *String, bool ExtendedRemove, bool ExtendedRemo
    {
       s = String;
       const char *toBeRemoved = "\n\r";
-      if (ExtendedRemove)
+      if (ExtendedRemove) {
          if (ExtendedRemoveWithSpace)
             toBeRemoved = " .,;:-+!?&/()\"'`|\n\r";
          else
             toBeRemoved = ".,;:-+!?&/()\"'`|\n\r";
+      }
 
       const char em_dash[4]     = {(char)0xE2, (char)0x80, (char)0x93 , (char)0x00};
       const char apostroph[4]   = {(char)0xE2, (char)0x80, (char)0x99 , (char)0x00};
