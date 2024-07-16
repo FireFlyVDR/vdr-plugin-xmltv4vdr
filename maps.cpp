@@ -5,6 +5,7 @@
  *
  */
 
+#include <inttypes.h>
 #include "maps.h"
 #include "debug.h"
 
@@ -105,7 +106,7 @@ cEPGMapping &cEPGMapping::operator= (const cEPGMapping &EpgMapping)
 
 cString cEPGMapping::ToString(void)
 {
-   cString text = cString::sprintf("%s;0x%lX", epgSource ? epgSource->SourceName() : "NULL", flags);
+   cString text = cString::sprintf("%s;0x%" PRIX64, epgSource ? epgSource->SourceName() : "NULL", flags);
 
    for (int i = 0; i < channelList.Size(); i++)
    {
