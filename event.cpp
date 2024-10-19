@@ -147,7 +147,6 @@ void cXMLTVEvent::SetXTEventID(time_t StartTime)
    int newid = ((tm.tm_mday) & 0x1F) << 11;
    newid |= ((tm.tm_hour & 0x1F) << 6);
    newid |= (tm.tm_min & 0x3F);
-
    xtEventID = newid & 0xFFFF;
 }
 
@@ -869,6 +868,7 @@ int strsplit(const char *Source, const char delimiter, cString &Before, cString 
    return 1;
 }
 
+#define nrmTupel(Symbol, Replacement) { "Symbol", strlen("Symbol"), Replacement }
 cString StringNormalize(const char *String)
 {
    cString src = String;
@@ -880,13 +880,13 @@ cString StringNormalize(const char *String)
    };
 
    const struct sNormalize normalizeTable[]= {   //  "-.,;:/!?()\''\"\n\r");
-      {"-", strlen("-"), 0}, {".", strlen("."), 0}, {",", strlen(","), 0}, {";", strlen(";"), 0}, {":", strlen(":"), 0}, {"/", strlen("/"), 0}, {"!", strlen("!"), 0}, {"?", strlen("?"), 0},
-      {"(", strlen("("), 0}, {")", strlen(")"), 0}, {"'", strlen("'"), 0}, {"’", strlen("’"), 0}, {"\"", strlen("\""), 0}, {"&", strlen("&"), 0}, {"\n", strlen("\n"), 0}, {"\r", strlen("\r"), 0},
-      {"–", strlen("–"), 0}, {"´", strlen("´"), 0}, {"…", strlen("…"), 0}, {"„", strlen("„"), 0}, {"“", strlen("“"), 0}, {" ", strlen(" "), ' '}, {"‚", strlen("‚"), 0}, {"‘", strlen("‘"), 0},
-      {"À", strlen("À"), 'a'}, {"Â", strlen("Â"), 'a'}, {"Æ", strlen("Æ"), 'a'}, {"Ç", strlen("Ç"), 'c'}, {"È", strlen("È"), 'e'}, {"É", strlen("É"), 'e'}, {"Ê", strlen("Ê"), 'e'},
-      {"Ë", strlen("Ë"), 'e'}, {"Î", strlen("Î"), 'i'}, {"Ï", strlen("Ï"), 'i'}, {"Ô", strlen("Ô"), 'o'}, {"Œ", strlen("Œ"), 'a'}, {"Ù", strlen("Ù"), 'u'}, {"Û", strlen("Û"), 'u'}, {"Ÿ", strlen("Ÿ"), 'y'},
-      {"à", strlen("à"), 'a'}, {"â", strlen("â"), 'a'}, {"æ", strlen("æ"), 'a'}, {"ç", strlen("ç"), 'c'}, {"è", strlen("è"), 'e'}, {"é", strlen("é"), 'e'}, {"ê", strlen("ê"), 'e'},
-      {"ë", strlen("à"), 'e'}, {"î", strlen("î"), 'i'}, {"ï", strlen("ï"), 'i'}, {"ô", strlen("ô"), 'o'}, {"œ", strlen("œ"), 'a'}, {"ù", strlen("ù"), 'u'}, {"û", strlen("û"), 'u'}, {"ÿ", strlen("ÿ"), 'y'} };
+      nrmTupel("-", 0),   nrmTupel(".", 0),   nrmTupel(",", 0),   nrmTupel(";", 0),   nrmTupel(":", 0),   nrmTupel("/", 0),   nrmTupel("!", 0),   nrmTupel("?", 0), nrmTupel("*", 0),
+      nrmTupel("(", 0),   nrmTupel(")", 0),   nrmTupel("'", 0),   nrmTupel("’", 0),   nrmTupel("\"", 0),  nrmTupel("&", 0),   nrmTupel("\n", 0),  nrmTupel("\r", 0),
+      nrmTupel("–", 0),   nrmTupel("´", 0),   nrmTupel("…", 0),   nrmTupel("„", 0),   nrmTupel("“", 0),   nrmTupel(" ", 0),   nrmTupel("‚", 0),   nrmTupel("‘", 0),
+      nrmTupel("À", 'a'), nrmTupel("Â", 'a'), nrmTupel("Æ", 'a'), nrmTupel("Ç", 'c'), nrmTupel("È", 'e'), nrmTupel("É", 'e'), nrmTupel("Ê", 'e'),
+      nrmTupel("Ë", 'e'), nrmTupel("Î", 'i'), nrmTupel("Ï", 'i'), nrmTupel("Ô", 'o'), nrmTupel("Œ", 'a'), nrmTupel("Ù", 'u'), nrmTupel("Û", 'u'), nrmTupel("Ÿ", 'y'),
+      nrmTupel("à", 'a'), nrmTupel("â", 'a'), nrmTupel("æ", 'a'), nrmTupel("ç", 'c'), nrmTupel("è", 'e'), nrmTupel("é", 'e'), nrmTupel("ê", 'e'),
+      nrmTupel("ë", 'e'), nrmTupel("î", 'i'), nrmTupel("ï", 'i'), nrmTupel("ô", 'o'), nrmTupel("œ", 'a'), nrmTupel("ù", 'u'), nrmTupel("û", 'u'), nrmTupel("ÿ", 'y') };
 
    char *s = (char *)*src;
    char *d = (char *)*src;

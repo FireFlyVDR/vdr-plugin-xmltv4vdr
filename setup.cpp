@@ -176,12 +176,10 @@ void cMenuSetupXmltv4vdr::Set(void)
       Add(new cMenuEditBoolItem(tr("fix duplicate Title in Shorttext"), &tmpFixDuplTitleInShortttext), true);
 
       // ------------ episodes update
-      if (!isempty(XMLTVConfig.EpisodesDir())) {
-         struct stat statbuf;
-         if (stat((const char *)XMLTVConfig.EpisodesDir(), &statbuf) != -1) {
-            Add(new cOsdItem(*cString::sprintf("%s: %s", tr("last Episodes Change"), *DayDateTime(statbuf.st_mtime)), osUnknown, false), true);
-         }
+      if (XMLTVConfig.UseEpisodes()) {
+         Add(new cOsdItem(*cString::sprintf("%s:\t%s", tr("last Episodes Update"), *DayDateTime(XMLTVConfig.LastEpisodesUpdate())), osUnknown, false), true);
       }
+
       // ------------ EPG sources
       Add(NEWTITLE(tr("EPG sources (last successful run)")), true);
 

@@ -6,36 +6,36 @@
  */
 
 #include <string>
-//#include <unistd.h>
+#include <netdb.h>
 #include <vdr/channels.h>
 
 #include "debug.h"
 #include "database.h"
 
 
-// -------------------------------------------------------------
-cPictureList::~cPictureList()
+// ================================ cMapList ==============================================
+cMapList::~cMapList()
 {
   Clear();
 }
 
-int cPictureList::Find(const char *A, const char *B) const
+int cMapList::Find(const char *A, const char *B) const
 {
    for (int i = 0; i < Size(); i++) {
-      if (!strcmp(A, At(i)->Source()) && !strcmp(B, At(i)->Picture()))
+      if (!strcmp(A, At(i)->A()) && !strcmp(B, At(i)->B()))
          return i;
       }
   return -1;
 }
 
-void cPictureList::Clear(void)
+void cMapList::Clear(void)
 {
    for (int i = 0; i < Size(); i++)
       delete(At(i));
-   cVector<cPictureObject *>::Clear();
+   cVector<cMapObject *>::Clear();
 }
 
-// -------------------------------------------------------------
+// ================================ cXMLTVSQLite ==============================================
 cXMLTVSQLite::cXMLTVSQLite(void)
 {  /// cXMLTVSQLite Constructor
    DBHandle = NULL;
@@ -65,7 +65,6 @@ bool cXMLTVSQLite::OpenDBConnection(const char *DBFile, int OpenFlags)
 bool cXMLTVSQLite::CloseDBConnection(int Line)
 {  /// Close DB connection
    int SQLrc = sqlite3_close(DBHandle);
-   sqlite3* oldHandle = DBHandle;
    DBHandle = NULL;
    bool result = CheckSQLiteSuccess(SQLrc, Line);
    return result;
@@ -212,6 +211,241 @@ cString cXMLTVSQLite::Time2Str(time_t t)
    return buf;
 }
 
+const char *stripend(const char *s, const char *p)
+{
+   char *se = (char *)s + strlen(s) - 1;
+   const char *pe = p + strlen(p) - 1;
+   while (pe >= p) {
+      if (*pe-- != *se-- || (se < s && pe >= p))
+         return NULL;
+   }
+   *++se = 0;
+   return s;
+}
+
+// ================================ cEpLists ==============================================
+class cEpLists
+{
+private:
+   cString host;
+   int port;
+   int sock;
+   cFile file;
+   int length;
+   char *inBuffer;
+
+   int connect();
+   int ReadLine(cStringList *Response, bool Log, int timeoutMs);
+
+public:
+   cEpLists(const char *Address, const int Port);
+   ~cEpLists();
+
+   bool Open();
+   void Close();
+   bool Send(const char *Command);
+   int Receive(cStringList *Response, bool Log = false, int timeoutMs = 20 * 1000);
+};
+
+
+cEpLists::cEpLists(const char *Host, const int Port)
+{
+   host = Host;
+   port = Port;
+   sock = -1;
+   length = BUFSIZ;
+   inBuffer = (char*)malloc(length);
+}
+
+cEpLists::~cEpLists(void)
+{
+   Close();
+   free(inBuffer);
+}
+
+bool cEpLists::Open()
+{
+   in_addr_t serverAddr;
+   char addrstr[INET_ADDRSTRLEN];
+   struct addrinfo hints, *serverInfo;
+
+   memset (&hints, 0, sizeof(hints));
+   hints.ai_family = PF_INET; // only IPv4 for now, was PF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+   hints.ai_flags |= AI_CANONNAME;
+
+   int errorcode = getaddrinfo (*host, NULL, &hints, &serverInfo);
+   if (errorcode || serverInfo->ai_family != PF_INET) {
+      LOG_ERROR;
+      return false;
+   }
+
+   struct sockaddr_in * p = (struct sockaddr_in *)(serverInfo->ai_addr);
+   serverAddr = p->sin_addr.s_addr;
+   if (inet_ntop(p->sin_family, &p->sin_addr, addrstr, INET_ADDRSTRLEN) == NULL)
+      LOG_ERROR;
+#ifdef DBG_EPISODES2
+   else
+      isyslog("EPL10: %s IPv%d address: %s (%s)\n", *host, serverInfo->ai_family == PF_INET6 ? 6 : 4, addrstr, serverInfo->ai_canonname);
+#endif
+   freeaddrinfo(serverInfo);
+
+   if ((sock = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
+      LOG_ERROR;
+      return false;
+   }
+
+   sockaddr_in Addr;
+   memset(&Addr, 0, sizeof(Addr));
+   Addr.sin_family = AF_INET;
+   Addr.sin_port = htons(port);
+   Addr.sin_addr.s_addr = serverAddr;
+
+   if (::connect(sock, (sockaddr *)&Addr, sizeof(Addr)) < 0 && errno != EINPROGRESS) {
+      close(sock);
+      LOG_ERROR;
+      return false;
+   }
+
+   // make it non-blocking:
+   int Flags = ::fcntl(sock, F_GETFL, 0);
+   if (Flags < 0) {
+      LOG_ERROR;
+      return false;
+   }
+   if (::fcntl(sock, F_SETFL, Flags |= O_NONBLOCK) < 0) {
+      LOG_ERROR;
+      return false;
+   }
+
+   if (!file.Open(sock)) {
+      LOG_ERROR;
+      return false;
+   }
+   isyslog("Episodes DB: connected to eplists server %s (%s:%d)", *host, addrstr, port);
+
+   cStringList greetings;
+   int rc = Receive(&greetings);
+   if (rc != 220) {
+      esyslog("EPL11: Did not receive greeting from %s, aborting", *host);
+      return false;
+   }
+
+   greetings.Clear();
+   Send("CHARSET utf-8");
+   if ((rc = Receive(&greetings)) != 225) {
+      esyslog("EPL12: Could not set charset, aborting");
+      return false;
+   }
+
+   return true;
+}
+
+void cEpLists::Close()
+{
+   if (file.IsOpen()) {
+      file.Close();
+   }
+
+   if (sock >= 0) {
+      close(sock);
+      sock = -1;
+      isyslog("Episodes DB: disconnected from eplists server %s", *host);
+   }
+}
+
+bool cEpLists::Send(const char *Command)
+{
+   if (safe_write(file, Command, strlen(Command)) < 0 || safe_write(file, "\n", 1) < 0) {
+     LOG_ERROR;
+     return false;
+   }
+
+   return true;
+}
+
+int cEpLists::Receive(cStringList *Responses, bool Log, int timeoutMs)
+{
+   int rc = 0;
+   if (!Responses || !file.IsOpen())
+      return -1;
+
+   Responses->Clear();
+   while ((rc = ReadLine(Responses, Log, timeoutMs)) > 0) {
+#ifdef DBG_EPISODES2
+      isyslog("EPL31 % 4d Response: %2d lines", rc, Responses->Size());
+#endif
+   }
+
+#ifdef DBG_EPISODES2
+   isyslog("EPL32 %03d Response: %2d lines", abs(rc), Responses->Size());
+#endif
+   return (abs(rc));
+}
+
+
+#define SVDRPResonseTimeout 5000 // ms
+int cEpLists::ReadLine(cStringList *Response, bool Log, int timeoutMs)
+{
+   int numChars = 0;
+   int rc = 0;
+   cTimeMs Timeout(SVDRPResonseTimeout);
+   for (;;) {
+      if (!file.Ready(false)) {
+         if (Timeout.TimedOut()) {
+            isyslog("EPL43: timeout while waiting for response from '%s'", *host);
+            return -2;
+         }
+      }
+      else {
+         unsigned char c;
+         int r = safe_read(file, &c, 1);
+         if (r > 0) {
+            if (c == '\n' || c == 0x00) {
+               // strip trailing whitespace:
+               while (numChars > 0 && strchr(" \r\n", inBuffer[numChars - 1]))
+                  inBuffer[--numChars] = 0;
+               inBuffer[numChars] = 0;
+               Response->Append(strdup(inBuffer+4));
+               if (Log) isyslog(inBuffer);
+               rc = atoi(inBuffer);
+               if (numChars >= 4 && inBuffer[3] != '-') { // no more lines will follow
+                  rc = -rc;
+               }
+               break;
+            }
+            else if ((c <= 0x1F || c == 0x7F) && c != 0x09) {} // ignore
+            else {
+               if (numChars >= length - 1) {
+                  int NewLength = length + BUFSIZ;
+                  if (char *NewBuffer = (char *)realloc(inBuffer, NewLength)) {
+                     length = NewLength;
+                     inBuffer = NewBuffer;
+                  }
+                  else {
+                     esyslog("EPL44: ERROR: out of memory");
+                     Close();
+                     break;
+                  }
+               }
+               inBuffer[numChars++] = c;
+               inBuffer[numChars] = 0;
+            }
+            Timeout.Set(SVDRPResonseTimeout);
+         }
+         else if (r <= 0) {
+            esyslog("EPL47: lost connection %d to remote server '%s'", r, *host);
+            return -3;
+         }
+      }
+   }
+
+#ifdef DBG_EPISODES2
+   isyslog("EPL49: %03d Response: %2d lines", rc, Response->Size());
+#endif
+   return rc;
+}
+
 // ================================ cEpisodesDB ==============================================
 bool cEpisodesDB::OpenDBConnection(bool Create)
 {  /// open a DB connection an return true on success
@@ -224,6 +458,7 @@ bool cEpisodesDB::OpenDBConnection(bool Create)
          uint version = 0;
          int result = ExecDBQueryInt("pragma user_version", version);
          lastUpdate = version;
+         XMLTVConfig.SetLastEpisodesUpdate(lastUpdate);
          if (!lastUpdate)
             CreateDB();
       }
@@ -279,24 +514,166 @@ bool cEpisodesDB::CreateDB(void)
    return SQLrc == SQLITE_OK;
 }
 
-bool stripend(const char *s, const char *p)
+bool cEpisodesDB::UpdateDB()
 {
-   char *se = (char *)s + strlen(s) - 1;
-   const char *pe = p + strlen(p) - 1;
-   while (pe >= p) {
-      if (*pe-- != *se-- || (se < s && pe >= p))
-         return false;
+   bool success = false;
+   // use INET if episodes server is set
+   if (!isempty(XMLTVConfig.EpisodesServer()))
+      success = UpdateDBFromINet();
+   else
+      success = UpdateDBFromFiles();
+   if (success)
+   {
+      Analyze("series");
+      Analyze("episodes");
    }
-   *se = 0;
-   return true;
+   return success;
 }
 
-bool cEpisodesDB::UpdateDB()
+bool cEpisodesDB::UpdateDBFromINet()
+{
+   bool success = true;
+   cEpLists *eplists = new cEpLists(XMLTVConfig.EpisodesServer(), XMLTVConfig.EpisodesServerPort());
+   if ((success = eplists->Open()))
+   {
+      //define time range of updates
+      cString eplistQuery;
+      time_t currentTime = time(NULL);
+      uint updateAgo = 0;
+      if (lastUpdate) {
+         updateAgo = currentTime - lastUpdate + 90*60; // for summer/winter time change
+         isyslog("Episodes DB: importing episodes newer than %s", *TimeToString(lastUpdate - 90*60));
+         eplistQuery = cString::sprintf("TGET newer than %u minutes", updateAgo/60);
+      }
+      else {
+         isyslog("Episodes DB: No timestamp found - importing ALL episodes from episodes server");
+         eplistQuery = "GET all";
+      }
+
+      if (eplists->Send(*eplistQuery))
+      {
+         int reply = 0;
+         bool abort = false;
+         bool isLink = false;
+         cStringList response;
+         cString seriesName, linkedTo;
+         int numSeries = 0, numLinks = 0;
+         cMapList links;
+         Transaction_Begin();
+         while(!abort && (reply = eplists->Receive(&response)) != 217)
+         {
+            if (reply == 218) {
+               if (response.Size() != 2)
+               {
+                  esyslog("EPL61: FileInfo protocol violation, aborting");
+                  abort = true;
+               }
+               else
+               {
+                  seriesName = StringNormalize(response[0]);
+                  isLink   = response[1] && strcmp(response[1], "not a link");
+                  linkedTo = response[1];
+                  numSeries++;
+                  if (isLink && !isempty(*seriesName) && (-1 == links.Find(seriesName, linkedTo))) {
+                     links.AppendStrings(seriesName, linkedTo);
+                     numLinks++;
+                  }
+               }
+            }
+            else if (reply == 216)
+            {
+               if (isempty(*seriesName))
+                  abort = true;
+               else {
+                  if (!isLink) {
+                     uint seriesId = 0;
+                     int result = ExecDBQueryInt(*cString::sprintf("SELECT id FROM series WHERE name = %s;", *SQLescape(*seriesName)), seriesId);
+                     if (result == SQLqryEmpty) {
+                        ExecDBQueryInt("SELECT MAX(id) from series;", seriesId);
+                        ExecDBQuery(*cString::sprintf("INSERT INTO series VALUES(%d, %s)", ++seriesId, *SQLescape(*seriesName)));
+                     }
+
+                     uint season, episode, episodeOverall;
+                     char *line;
+                     char episodeName[201];
+                     char extraCols[201];
+                     uint cnt = 0;
+                     uint added = 0;
+                     for (int i = 0; i < response.Size()-1; i++)
+                     {
+                        line = response[i];
+                        if (line[0] == '#') continue;
+                        cnt++;
+                        if (sscanf(line, "%d\t%d\t%d\t%200[^\t\n]\t%200[^]\n]", &season, &episode, &episodeOverall, episodeName, extraCols) >= 4)
+                        {
+                           cString nrmEpisodeName = StringNormalize(episodeName);
+                           if (!isempty(*nrmEpisodeName)) {
+                              if (!strcmp(*nrmEpisodeName, "nn") || !strcmp(*nrmEpisodeName, "ka"))
+                                 continue;
+                              result = ExecDBQuery(*cString::sprintf("INSERT OR REPLACE INTO episodes VALUES(%d, %s, %d, %d, %d)", seriesId, *SQLescape(*nrmEpisodeName), season, episode, episodeOverall));
+                              added++;
+                           }
+                        }
+                        else
+                           isyslog("EPL62: not added: '%s'", line);
+                     }
+#ifdef DBG_EPISODES2
+                     tsyslog("Episodes DB: added %3d of %3d lines to series '%s'", added, cnt, *seriesName);
+#endif
+                  }
+                  seriesName = NULL;
+                  linkedTo   = NULL;
+               }
+            }
+            else
+            {
+               esyslog("EPL66: unexpected reply: %d %s", reply, response[0]);
+               abort = true;
+            }
+         }
+
+         // import links
+         for (int i = 0; i < links.Size(); i++)
+         {
+            uint seriesId = 0;
+            int result = ExecDBQueryInt(*cString::sprintf("SELECT id FROM series WHERE name = %s;", *SQLescape(links[i]->B())), seriesId);
+            if (result == SQLqryOne) {
+               ExecDBQuery(*cString::sprintf("INSERT OR REPLACE INTO series VALUES(%d, %s)", seriesId, *SQLescape(links[i]->A())));
+#ifdef DBG_EPISODES2
+               tsyslog("Episodes DB: added alias '%s' (%d) for series '%s'", *SQLescape(links[i]->B()), seriesId, *SQLescape(links[i]->A()));
+#endif
+            }
+         }
+
+         if (!abort) {
+            ExecDBQuery(cString::sprintf("PRAGMA user_version = %lu", currentTime));
+            XMLTVConfig.SetLastEpisodesUpdate(currentTime);
+            isyslog("Episodes DB: updated %u series and %u links", numSeries, numLinks);
+         }
+
+         Transaction_End(!abort);
+      }
+      else {
+         esyslog("EPL69: Error sending query");
+      }
+
+
+      eplists->Send("QUIT");
+      cStringList response;
+      int rc = eplists->Receive(&response);
+   }
+   eplists->Close();
+
+   delete eplists;
+   return success;
+}
+
+bool cEpisodesDB::UpdateDBFromFiles()
 {
    bool success = false;
 
    if (!isempty(XMLTVConfig.EpisodesDir())) {
-      time_t newestFileTime = lastUpdate;
+      time_t newestFileTime = 0;
       cReadDir episodesDir(XMLTVConfig.EpisodesDir());
       if (episodesDir.Ok()) {
          isyslog("Episodes DB: importing Files newer than %s", *TimeToString(lastUpdate));
@@ -309,6 +686,7 @@ bool cEpisodesDB::UpdateDB()
                cString epTitle = cString(e->d_name, strstr(e->d_name, ".episodes"));
                stripend(*epTitle, ".en");
                stripend(*epTitle, ".de");
+               epTitle = StringNormalize(*epTitle);
                uint seriesId = 0;
                int result = ExecDBQueryInt(*cString::sprintf("SELECT id FROM series WHERE name = %s;", *SQLescape(*epTitle)), seriesId);
                if (result == SQLqryEmpty) {
@@ -316,10 +694,12 @@ bool cEpisodesDB::UpdateDB()
                   seriesId += 1;
                   ExecDBQuery(*cString::sprintf("INSERT INTO series VALUES(%d, %s)", seriesId, *SQLescape(*epTitle)));
                }
-
+#ifdef DBG_EPISODES2
+               isyslog("EPL80: seriesID: %4d: %s (%s, %s)", seriesId, *epTitle, *epFilename, *TimeToString(st.st_mtime));
+#endif
                FILE *epFile = fopen(*epFilename, "r");
                if (!epFile) {
-                  esyslog("opening %s failed", *epFilename);
+                  esyslog("EPL81: opening %s failed", *epFilename);
                }
                else
                {
@@ -336,16 +716,22 @@ bool cEpisodesDB::UpdateDB()
                      {
                         cString nrmEpisodeName = StringNormalize(episodeName);
                         if (!isempty(*nrmEpisodeName)) {
+                           if (!strcmp(*nrmEpisodeName, "nn") || !strcmp(*nrmEpisodeName, "ka"))
+                              continue;
                            result = ExecDBQuery(*cString::sprintf("INSERT OR REPLACE INTO episodes VALUES(%d, %s, %d, %d, %d)", seriesId, *SQLescape(*nrmEpisodeName), season, episode, episodeOverall));
                            cnt++;
                         }
                      }
+#ifdef DBG_EPISODES2
+                     else
+                        isyslog("EPL83: line not recognized: %4d:  '%s'", seriesId, line);
+#endif
                   }
                   Transaction_End();
                   if (newestFileTime < st.st_mtime)
                      newestFileTime = st.st_mtime;
 #ifdef DBG_EPISODES
-                  tsyslog("EpisodesUpdate8: %4d %3d %s %s", seriesId, cnt, *DayDateTime(newestFileTime), *epTitle);
+                  tsyslog("EEPL84: %4d %3d %s %s", seriesId, cnt, *DayDateTime(newestFileTime), *epTitle);
 #endif
                }
                fclose(epFile);
@@ -368,9 +754,11 @@ bool cEpisodesDB::UpdateDB()
                {  // link exists and target was successfully read
                   buff[len] = 0;
                   cString epTarget = cString(buff, strstr(buff, ".episodes"));
+                  epTarget = StringNormalize(*epTarget);
                   cString epTitle = cString(e->d_name, strstr(e->d_name, ".episodes"));
                   stripend(*epTitle, ".en");
                   stripend(*epTitle, ".de");
+                  epTitle = StringNormalize(*epTitle);
                   if (!isempty(*epTitle)) {
                      uint seriesId = 0;
                      int result = ExecDBQueryInt(*cString::sprintf("SELECT id FROM series WHERE name = %s;", *SQLescape(epTarget)), seriesId);
@@ -383,10 +771,9 @@ bool cEpisodesDB::UpdateDB()
          }
       }
       lastUpdate = newestFileTime;
-      Analyze("episodes");
       isyslog("Episodes DB: imported files until %s", *TimeToString(lastUpdate));
 
-      success = true; // ??
+      success = true;
    }
    return success;
 }
@@ -396,8 +783,7 @@ bool cEpisodesDB::QueryEpisode(cXMLTVEvent *xtEvent)
    bool found = false;
    if (stmtQueryEpisodes && xtEvent && !isempty(xtEvent->Title()))
    {
-      cString eventTitle = xtEvent->Title();
-      strreplace((char *)*eventTitle, '*', '.');
+      cString eventTitle = StringNormalize(xtEvent->Title());
       cString eventSplitTitle, eventSplitShortText;
       cString eventShortText = xtEvent->ShortText();
       if (isempty(*eventShortText) && !isempty(xtEvent->Description()) && strlen(xtEvent->Description()) < 100)
@@ -406,14 +792,15 @@ bool cEpisodesDB::QueryEpisode(cXMLTVEvent *xtEvent)
       if (!isempty(eventShortText))
       {  // try complete shorttext
          uint l;
-         eventShortText = StringCleanup((char*)*eventShortText, true, true);
+         eventShortText = StringNormalize(*eventShortText);
          for (uint i=0; l = Utf8CharLen((*eventShortText)+i), i<strlen(*eventShortText); i += l)
             if (l == 1) {
                char *symbol = (char*)(*eventShortText)+i;
                *symbol = tolower(*symbol);
             }
-         sqlite3_bind_text(stmtQueryEpisodes, 1, eventTitle, -1, SQLITE_STATIC);
-         sqlite3_bind_text(stmtQueryEpisodes, 2, eventShortText, -1, SQLITE_STATIC);
+
+         sqlite3_bind_text(stmtQueryEpisodes, 1, *eventTitle, -1, SQLITE_STATIC);
+         sqlite3_bind_text(stmtQueryEpisodes, 2, *eventShortText, -1, SQLITE_STATIC);
 
          int SQLrc1 = sqlite3_step(stmtQueryEpisodes);
          CheckSQLiteSuccess(SQLrc1, __LINE__, __FUNCTION__);
@@ -428,19 +815,20 @@ bool cEpisodesDB::QueryEpisode(cXMLTVEvent *xtEvent)
          sqlite3_reset(stmtQueryEpisodes);
       }
 
-      char *p = (char *)strchrn(*eventTitle, ':', 1);
+      char *p = (char *)strchrn(xtEvent->Title(), ':', 1);
       if (!found && p && !isempty(skipspace(p+1)))
       {  // try with title split at colon
-         eventSplitTitle = cString(*eventTitle, p);
-         eventSplitShortText = StringCleanup(skipspace(p+1), true, true);
+         eventSplitTitle = cString(xtEvent->Title(), p);
+         eventSplitTitle = StringNormalize(*eventSplitTitle);
+         eventSplitShortText = StringNormalize(skipspace(p+1));
          uint l;
          for (uint i=0; l = Utf8CharLen((*eventSplitShortText)+i), i<strlen(*eventSplitShortText); i += l)
             if (l == 1) {
                char *symbol = (char*)(*eventSplitShortText)+i;
                *symbol = tolower(*symbol);
             }
-         sqlite3_bind_text(stmtQueryEpisodes, 1, eventSplitTitle, -1, SQLITE_STATIC);
-         sqlite3_bind_text(stmtQueryEpisodes, 2, eventSplitShortText, -1, SQLITE_STATIC);
+         sqlite3_bind_text(stmtQueryEpisodes, 1, *eventSplitTitle, -1, SQLITE_STATIC);
+         sqlite3_bind_text(stmtQueryEpisodes, 2, *eventSplitShortText, -1, SQLITE_STATIC);
 
          int SQLrc1 = sqlite3_step(stmtQueryEpisodes);
          CheckSQLiteSuccess(SQLrc1, __LINE__, __FUNCTION__);
@@ -555,12 +943,12 @@ bool cEpisodesDB::QueryEpisode(cXMLTVEvent *xtEvent)
    return found;
 }
 
+// ================================ cXMLTVDB ==============================================
 #define TABLEVERSION_UNSEEN 0x7FFF
 #define DELETE_FLAG         0x8000
-#define SCHEMA_VERSION 21
+#define XMLTVDB_SCHEMA_VERSION 21
 #define TIMERANGE (2*60*59)  // nearly 2 hrs
 
-// ================================ cXMLTVDB ==============================================
 bool cXMLTVDB::OpenDBConnection(bool Create)
 {  /// open a DB connection an return true on success
    if (!XMLTVConfig.DBinitialized() || !DBHandle)
@@ -589,9 +977,9 @@ bool cXMLTVDB::UpgradeDB(bool ForceCreate)
       if (!ForceCreate) {
          uint version = 0;
          int result = ExecDBQueryInt("pragma user_version", version);
-         if (result == 0 || (result == 1 && version != SCHEMA_VERSION))
+         if (result == 0 || (result == 1 && version != XMLTVDB_SCHEMA_VERSION))
          {  // schema was updated
-            esyslog("xmltv4vdr SQLite schema has wrong version %d or is missing, expected %d - re-creating DB", version, SCHEMA_VERSION);
+            esyslog("xmltv4vdr SQLite schema has wrong version %d or is missing, expected %d - re-creating DB", version, XMLTVDB_SCHEMA_VERSION);
             create = true;
          }
       }
@@ -638,7 +1026,7 @@ bool cXMLTVDB::CreateDB(void)
                         "PRIMARY KEY(src, channelid, starttime));" // avoid duplicate events
       "CREATE INDEX IF NOT EXISTS ndx1 ON epg (eventid, channelid, src); "
       "CREATE INDEX IF NOT EXISTS ndx3 ON epg (src, pics);"
-      "PRAGMA user_version = %d; ", SCHEMA_VERSION);
+      "PRAGMA user_version = %d; ", XMLTVDB_SCHEMA_VERSION);
 
    int SQLrc = ExecDBQuery(*sqlCreate);
    if (SQLrc != SQLITE_OK)
@@ -909,7 +1297,7 @@ int cXMLTVDB::DeletePictures(void)
    cXMLTVStringList linkList;
    for (int i = 0; i < orphanedPictures.Size(); i++) {
       cString sqlQueryPics = cString::sprintf("SELECT count(*) FROM epg WHERE src='%s' AND pics LIKE '%%%s%%';",
-                                              orphanedPictures.At(i)->Source(), orphanedPictures.At(i)->Picture());
+                                              orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
 
       uint picCount = 0;
       int result = ExecDBQueryInt(*sqlQueryPics, picCount);  //TODO precompile SQL query
@@ -918,12 +1306,12 @@ int cXMLTVDB::DeletePictures(void)
       }
       else {
          if (picCount == 0) {
-            cString picFilename = cString::sprintf("%s/%s-img/%s", XMLTVConfig.EPGSourcesDir(), orphanedPictures.At(i)->Source(), orphanedPictures.At(i)->Picture());
+            cString picFilename = cString::sprintf("%s/%s-img/%s", XMLTVConfig.EPGSourcesDir(), orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
             struct stat statbuf;
             if ((stat(*picFilename, &statbuf) == 0) && (statbuf.st_mode & (S_IFLNK | S_IFREG))) {  // regular file or link
                if (unlink(*picFilename) == 0) {
 #ifdef DBG_DROPEVENTS2
-                  tsyslog("DeletePictures: deleted %s %s", orphanedPictures.At(i)->Source(), orphanedPictures.At(i)->Picture());
+                  tsyslog("DeletePictures: deleted %s %s", orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
 #endif
                   pics_deleted++;
                }
@@ -931,7 +1319,7 @@ int cXMLTVDB::DeletePictures(void)
          }
          else {
 #ifdef DBG_DROPEVENTS2
-            tsyslog("DeletePictures: NOT deleted (%d) %s %s", picCount, orphanedPictures.At(i)->Source(), orphanedPictures.At(i)->Picture());
+            tsyslog("DeletePictures: NOT deleted (%d) %s %s", picCount, orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
 #endif
          }
       }
@@ -1500,7 +1888,7 @@ bool cXMLTVDB::CheckConsistency(bool Fix, cXMLTVStringList *CheckResult)
    return failures | !success;
 }
 
-// -------------------------------------------------------------
+// ================================ cHouseKeeping ==============================================
 cHouseKeeping::cHouseKeeping(): cThread("xmltv4vdr Housekeeping", true)
 {
    lastCheckResult.Append(strdup("No check has run so far"));

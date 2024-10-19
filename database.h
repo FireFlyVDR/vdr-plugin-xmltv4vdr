@@ -16,23 +16,23 @@
 
 #define EPG_DB_FILENAME "xmltv4vdr_EPG.db"
 
-class cPictureObject
+class cMapObject
 {
 private:
    cString a;
    cString b;
 public:
-   cPictureObject(const char *A, const char *B) { a = A; b = B;};
-   ~cPictureObject() {};
-   const char *Source()    { return a;};
-   const char *Picture()   { return b;};
+   cMapObject(const char *A, const char *B) { a = A; b = B;};
+   ~cMapObject() {};
+   const char *A()   { return a;};  // Source
+   const char *B()   { return b;};  // Picture
 };
 
-class cPictureList : public cVector<cPictureObject *> {
+class cMapList : public cVector<cMapObject *> {
 public:
-   cPictureList(int Allocated = 100): cVector<cPictureObject *>(Allocated) {}
-   virtual ~cPictureList();
-   void AppendStrings(const char *A, const char *B)  { Append(new cPictureObject(A, B)); };
+   cMapList(int Allocated = 100): cVector<cMapObject *>(Allocated) {}
+   virtual ~cMapList();
+   void AppendStrings(const char *A, const char *B)  { Append(new cMapObject(A, B)); };
    int Find(const char *A, const char *B) const;
    virtual void Clear(void);
 };
@@ -71,6 +71,8 @@ private:
    sqlite3_stmt *stmtQueryEpisodes;
    sqlite3_stmt *stmtQueryAllEpisodes;
    time_t lastUpdate;
+   bool UpdateDBFromFiles(void);
+   bool UpdateDBFromINet(void);
 public:
    cEpisodesDB(void) { lastUpdate = 0; };
    ~cEpisodesDB() { };
@@ -84,7 +86,7 @@ public:
 class cXMLTVDB : private cXMLTVSQLite
 {
 private:
-   cPictureList orphanedPictures;
+   cMapList orphanedPictures;
    cString lastSource;
    sqlite3_stmt *stmtUpdateEventSelect;
    sqlite3_stmt *stmtImportXMLTVEventSelect;

@@ -8,8 +8,6 @@
 #include "config.h"
 #include "debug.h"
 
-#define EPGSOURCESDIR "/var/lib/epgsources"
-
 // -------------------------------------------------------------
 cConfigLine::cConfigLine(void)
 {
@@ -115,6 +113,7 @@ cXMLTVConfig::cXMLTVConfig(void)
 {
    epgSources = new cEPGSources;
    DB_initialized = false;
+   episodesServerPort = 2006;
    wakeup  = false;
    fixDuplTitleInShortttext = false;
    fhLogfile = NULL;

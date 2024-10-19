@@ -14,7 +14,7 @@
 #error THIS PLUGIN REQUIRES AT LEAST VDR 2.4.5
 #endif
 
-static const char *VERSION        = "0.4.3-Beta";
+static const char *VERSION        = "0.4.4-Beta";
 static const char *DESCRIPTION    = trNOOP("Imports EPG data in XMLTV format into VDR");
 
 // -------------------------------------------------------------
@@ -64,35 +64,41 @@ cPluginXmltv4vdr::~cPluginXmltv4vdr()
 const char *cPluginXmltv4vdr::CommandLineHelp(void)
 {  // Return a string that describes all known command line options.
    return 
-   "  -d FILE,  --epgdatabase=FILE   write the EPG database into the given FILE\n"
-   "                                 default: <Plugin-CacheDir>/xmltv4vdr_EPG.db\n"
-   "  -i DIR,   --images=DIR         location where EPG images are stored\n"
-   "                                 default: <Plugin-CacheDir>/epgimages\n"
-   "  -s DIR,   --epgsources=DIR     location where EPG Sources are stored\n"
-   "                                 default: /var/lib/epgsources\n"
-   "  -e DIR,   --episodes=DIR       location of episode files (UTF-8 format only)\n"
-   "                                 default is <Plugin-ResourceDir>/episodes\n"
-   "  -E DIR,   --episodesdb=DIR     read the Episodes DB from the given SQLite FILE\n"
-   "                                 default: none\n"
-   "  -l FILE,  --logfile=FILE       write trace logs into the given FILE\n"
-   "                                 default: no trace log written\n";
+   "  -d FILE,  --epgdatabase=FILE     write the EPG database into the given FILE\n"
+   "                                   default: <Plugin-CacheDir>/xmltv4vdr_EPG.db\n"
+   "  -i DIR,   --images=DIR           location where EPG images are stored\n"
+   "                                   default: <Plugin-CacheDir>/epgimages\n"
+   "  -s DIR,   --epgsources=DIR       location where EPG Sources are stored\n"
+   "                                   default: " EPGSOURCESDIR "\n"
+   "  -E FILE,  --episodesdb=FILE      read and writes the Episodes DB from the given SQLite FILE\n"
+   "                                   default: none\n"
+   "  -e DIR,   --episodes=DIR         location of episode files (UTF-8 format only)\n"
+   "                                   default is <Plugin-ResourceDir>/episodes\n"
+   "  -h HOST,  --episodesserver=HOST  name of the episode server\n"
+   "                                   default: none\n"
+   "  -p PORT,  --episodesport=PORT    port of the episode server\n"
+   "                                   default: 2006\n"
+   "  -l FILE,  --logfile=FILE         write trace logs into the given FILE\n"
+   "                                   default: no trace log written\n";
 }
 
 bool cPluginXmltv4vdr::ProcessArgs(int argc, char *argv[])
 {  // Command line argument processing
    static struct option long_options[] =
    {
-      { "epgdatabase",  required_argument, NULL, 'd'},
-      { "images",       required_argument, NULL, 'i'},
-      { "epgsources",   required_argument, NULL, 's'},
-      { "episodes",     required_argument, NULL, 'e'},
-      { "episodesdb",   required_argument, NULL, 'E'},
-      { "logfile",      required_argument, NULL, 'l'},
+      { "epgdatabase",    required_argument, NULL, 'd'},
+      { "images",         required_argument, NULL, 'i'},
+      { "epgsources",     required_argument, NULL, 's'},
+      { "episodesdb",     required_argument, NULL, 'E'},
+      { "episodes",       required_argument, NULL, 'e'},
+      { "episodesserver", required_argument, NULL, 'h'},
+      { "episodesport",   required_argument, NULL, 'p'},
+      { "logfile",        required_argument, NULL, 'l'},
       { 0,0,0,0 }
    };
 
    int c;
-   while ((c = getopt_long(argc, argv, "d:i:s:e:E:l:", long_options, NULL)) != -1)
+   while ((c = getopt_long(argc, argv, "d:i:s:E:e:h:p:l:", long_options, NULL)) != -1)
    {
       switch (c)
       {
@@ -105,11 +111,18 @@ bool cPluginXmltv4vdr::ProcessArgs(int argc, char *argv[])
          case 's':
             XMLTVConfig.SetEPGSourcesDir(optarg);
             break;
+         case 'E':
+            XMLTVConfig.SetEpisodesDBFile(optarg);
+            break;
          case 'e':
             XMLTVConfig.SetEpisodesDir(optarg);
             break;
-         case 'E':
-            XMLTVConfig.SetEpisodesDBFile(optarg);
+         case 'h':
+            XMLTVConfig.SetEpisodesServer(optarg);
+            break;
+         case 'p':
+            if (isnumber(optarg))
+               XMLTVConfig.SetEpisodesServerPort(atoi(optarg));
             break;
          case 'l':
             XMLTVConfig.SetLogFilename(optarg);
@@ -132,8 +145,6 @@ bool cPluginXmltv4vdr::Initialize(void)
    }
 
    // EPG Sources directory
-   //if (isempty(XMLTVConfig.EPGSourcesDir()))
-   //   XMLTVConfig.SetEPGSourcesDir(EPGSOURCESDIR);
    isyslog("using EPG sources dir '%s'", XMLTVConfig.EPGSourcesDir());
 
    // EPG image directory
@@ -151,19 +162,25 @@ bool cPluginXmltv4vdr::Initialize(void)
    isyslog("using EPG database '%s' with SQLite version %s", XMLTVConfig.EPGDBFile(), sqlite3_libversion());
    if (sqlite3_threadsafe() == 0) esyslog("SQLite3 not threadsafe!");
 
-   // episode directory
-   if (isempty(XMLTVConfig.EpisodesDir()))
-      XMLTVConfig.SetEpisodesDir(AddDirectory(cPlugin::ResourceDirectory(PLUGIN_NAME_I18N), "episodes"));
-
    // Episodes database
-   if (!isempty(XMLTVConfig.EpisodesDBFile()))
-      isyslog("using Episodes database '%s' with SQLite version %s", XMLTVConfig.EpisodesDBFile(), sqlite3_libversion());
+   if (isempty(XMLTVConfig.EpisodesDBFile())) {
+      isyslog("Episodes support disabled: Parameter --episodesdb for Episodes DB not set");
+   }
    else
    {
-      MakeDirs(XMLTVConfig.EpisodesDir(), true);
-      isyslog("using episodes directory '%s' with UTF-8", XMLTVConfig.EpisodesDir());
-      if (access(XMLTVConfig.EpisodesDir(), R_OK) == -1) {
-         esyslog("Could not access episodes directory '%s'", XMLTVConfig.EpisodesDir());
+      isyslog("using Episodes database '%s' with SQLite version %s", XMLTVConfig.EpisodesDBFile(), sqlite3_libversion());
+      if (!isempty(XMLTVConfig.EpisodesServer())) {
+         isyslog("using Episodes Server: %s:%d for Updates", XMLTVConfig.EpisodesServer(), XMLTVConfig.EpisodesServerPort());
+      }
+      else
+      {  // episode directory
+         if (isempty(XMLTVConfig.EpisodesDir()))
+            XMLTVConfig.SetEpisodesDir(AddDirectory(cPlugin::ResourceDirectory(PLUGIN_NAME_I18N), "episodes"));
+         MakeDirs(XMLTVConfig.EpisodesDir(), true);
+         isyslog("using episodes directory '%s' with UTF-8 for Updates", XMLTVConfig.EpisodesDir());
+         if (access(XMLTVConfig.EpisodesDir(), R_OK) == -1) {
+            esyslog("Could not access episodes directory '%s'", XMLTVConfig.EpisodesDir());
+         }
       }
    }
 
@@ -191,7 +208,7 @@ void sig_handler(int sig)
 bool cPluginXmltv4vdr::Start(void)
 {  // Start any background activities the plugin shall perform.
 
-   // prepare DB
+   // prepare xmlTV DB
    cXMLTVDB *xmlTVDB = new cXMLTVDB();
    if (!xmlTVDB)
       return false;
@@ -199,16 +216,31 @@ bool cPluginXmltv4vdr::Start(void)
    XMLTVConfig.SetDBinitialized(xmlTVDB->UpgradeDB());
    delete xmlTVDB;
    if (!XMLTVConfig.DBinitialized()) {
-      esyslog("initializing SQLite DB failed, aborting!");
+      esyslog("initializing SQLite DB for xmlTV failed, aborting!");
       return false;
    }
    isyslog("EPG database ready");
+
+   // prepare episodes DB
+   if (!isempty(XMLTVConfig.EpisodesDBFile())) {
+      cEpisodesDB *episodesDB = new cEpisodesDB();
+      if (episodesDB) {
+         if (!episodesDB->OpenDBConnection(true)) {
+            esyslog("initializing SQLite DB for episodes failed, aborting!");
+            return false;
+         }
+         else {
+            episodesDB->CloseDBConnection();
+         }
+         delete episodesDB;
+         isyslog("Episodes DB ready");
+      }
+   }
 
    // setup housekeeping
    XMLTVConfig.SetHouseKeeping(new cHouseKeeping());
 
    // register new EPG handler to VDR
-   //XMLTVConfig.epghandler = new cEpgHandlerXMLTV();
    epghandler = new cEpgHandlerXMLTV();
 
 #ifdef DEBUG
@@ -222,7 +254,6 @@ bool cPluginXmltv4vdr::Start(void)
 
 void cPluginXmltv4vdr::Stop(void)
 {  // Stop any background activities the plugin is performing.
-   //delete XMLTVConfig.epghandler;
    delete epghandler;
 
    XMLTVConfig.EPGSources()->StopImport();
@@ -306,6 +337,8 @@ const char **cPluginXmltv4vdr::SVDRPHelpPages(void)
    {
       "UPDT [source]\n"
       "    Fetch EPG data from all external sources [or only from given source]\n",
+      "UPDE\n"
+      "    Update Episodes DB from configured source\n",
       "HOUS\n"
       "    Start housekeeping manually\n",
       "CHEK [FIX]\n"
@@ -369,6 +402,28 @@ cString cPluginXmltv4vdr::SVDRPCommand(const char *Command, const char *Option, 
       {
          ReplyCode = 550;
          output = "import or housekeeping is currently busy";
+      }
+   }
+
+   if (!strcasecmp(Command,"UPDE"))
+   {  // update episodes lists
+      cEpisodesDB *episodesDB = new cEpisodesDB();
+      if (episodesDB) {
+         if (!episodesDB->OpenDBConnection()) {
+            ReplyCode = 550;
+            output = "failed to open or create Episodes DB";
+         }
+         else {
+            episodesDB->UpdateDB();
+            episodesDB->CloseDBConnection();
+            ReplyCode = 250;
+            output = "Episodes Update finished";
+         }
+         delete episodesDB;
+      }
+      else {
+         ReplyCode = 550;
+         output = "failed to create Episodes DB object";
       }
    }
 

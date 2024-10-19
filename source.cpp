@@ -409,12 +409,16 @@ int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
       return 34;
    }
 
-   cEpisodesDB *episodesDB = new cEpisodesDB();
-   if (!episodesDB->OpenDBConnection(true))
-   {
-      DELETENULL(episodesDB);
+   cEpisodesDB *episodesDB = NULL;
+   if (XMLTVConfig.UseEpisodes()) {
+      episodesDB = new cEpisodesDB();
+      if (!episodesDB->OpenDBConnection())
+      {
+         DELETENULL(episodesDB);
+      }
+      else
+         episodesDB->UpdateDB();
    }
-   episodesDB->UpdateDB();
 
    if (!xmlTVDB->ImportXMLTVEventPrepare(sourceName))
    {

@@ -11,6 +11,7 @@
 #include "database.h"
 #include "handler.h"
 
+#define EPGSOURCESDIR "/var/lib/epgsources"
 #define DELTA_HOUSEKEEPINGTIME 600
 
 enum
@@ -62,6 +63,9 @@ private:
    cString epgSourcesDir;
    cString episodesDir;
    cString episodesDBFile;
+   cString episodesServer;
+   int episodesServerPort;
+   time_t lastEpisodesUpdate;
    cString logFilename;
 
    bool DB_initialized;
@@ -92,30 +96,40 @@ public:
    void SetDBinitialized(bool initialized) { DB_initialized = initialized; }
    bool DBinitialized()                    { return DB_initialized; }
 
-   void SetImageDir(const char *ImageDir) {imageDir = ImageDir; }
-   const char *ImageDir()                { return imageDir; }
+   void SetImageDir(const char *ImageDir)  { imageDir = ImageDir; }
+   const char *ImageDir()                  { return *imageDir; }
 
-   void SetEPGSourcesDir(const char *EPGSourcesDir) {epgSourcesDir = EPGSourcesDir; }
-   const char *EPGSourcesDir()             { return epgSourcesDir; }
+   void SetEPGSourcesDir(const char *EPGSourcesDir) { epgSourcesDir = EPGSourcesDir; }
+   const char *EPGSourcesDir()             { return *epgSourcesDir; }
 
-   void SetEpisodesDir(const char *EpisodesDir) {episodesDir = EpisodesDir; }
-   const char *EpisodesDir()               { return episodesDir; }
+   void SetEpisodesDir(const char *EpisodesDir) { episodesDir = EpisodesDir; }
+   const char *EpisodesDir()               { return *episodesDir; }
 
-   void SetEpisodesDBFile(const char *EpisodesDBFile) {episodesDBFile = EpisodesDBFile; }
-   const char *EpisodesDBFile()            { return episodesDBFile; }
+   void SetEpisodesDBFile(const char *EpisodesDBFile) { episodesDBFile = EpisodesDBFile; }
+   const char *EpisodesDBFile()            { return *episodesDBFile; }
+   bool UseEpisodes()                      { return !isempty(*episodesDBFile); }
+
+   void SetEpisodesServer(const char *EpisodesServer) { episodesServer = EpisodesServer; }
+   const char *EpisodesServer()            { return *episodesServer; }
+
+   void SetEpisodesServerPort(int EpisodesServerPort) { episodesServerPort = EpisodesServerPort; }
+   int EpisodesServerPort()                { return episodesServerPort; }
+
+   void SetLastEpisodesUpdate(time_t LastUpdate) { lastEpisodesUpdate = LastUpdate; }
+   time_t LastEpisodesUpdate()                { return lastEpisodesUpdate; }
 
    void SetLogFilename(const char *LogFilename) { logFilename = LogFilename; }
-   const char *LogFilename(void)         { return logFilename; }
-   void SetLogfile(FILE *LogfileHandle)  { fhLogfile = LogfileHandle; }
-   FILE *LogFile()                       { return fhLogfile; }
+   const char *LogFilename(void)           { return *logFilename; }
+   void SetLogfile(FILE *LogfileHandle)    { fhLogfile = LogfileHandle; }
+   FILE *LogFile()                         { return fhLogfile; }
 
    void SetHouseKeeping(cHouseKeeping *HouseKeeping) { houseKeeping = HouseKeeping; }
    cHouseKeeping *HouseKeeping()           { return houseKeeping; }
    bool HouseKeepingActive(void)           { return houseKeeping != NULL && houseKeeping->Active(); }
    bool ImportActive(void)                 { return epgSources->Active(); } 
 
-   cEPGMappings *EPGMappings()           { return &epgMappings; }
-   cEPGSources  *EPGSources()            { return epgSources; }
+   cEPGMappings *EPGMappings()             { return &epgMappings; }
+   cEPGSources  *EPGSources()              { return epgSources; }
 
    void SetDescrSequence(const struct descriptionSeq NewSequence) { descrSequence = NewSequence; }
    void SetDescrSequence(const char *NewSequence);

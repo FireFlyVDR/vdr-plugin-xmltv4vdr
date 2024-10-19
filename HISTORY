@@ -8,3 +8,6 @@ VDR Plugin 'xmltv4vdr' Revision History
 2024-05-12: Version 0.4.2-Beta (unreleased)
 
 2024-07-14: Version 0.4.3-Beta First Public Release
+
+2024-10-19: Version 0.4.4-Beta
+- implemented fetching episode lists directly via internet
