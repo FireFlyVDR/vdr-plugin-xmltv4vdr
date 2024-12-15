@@ -186,7 +186,7 @@ bool cExtPipe::GetResult(char **outBuffer, size_t &outBufferSize, char **errBuff
       }
 
       // check if we should abort
-      if (!XMLTVConfig.EPGSources()->ImportIsRunning())
+      if (!XMLTVConfig.EPGSources()->ThreadIsRunning())
       {
          rc = -1;
       }

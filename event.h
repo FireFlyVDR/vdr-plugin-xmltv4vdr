@@ -21,15 +21,16 @@ public:
    int FindStr(const char *s) const;
 };
 
-#define xmlTagStart "<xmltv4vdr>"
-#define xmlTagEnd   "</xmltv4vdr>"
+#define xmlTagStart   "<xmltv4vdr>"
+#define xmlTagEnd     "</xmltv4vdr>"
 #define xmlTagTVStart "<xmltv4vdrTV>"
 #define xmlTagTVEnd   "</xmltv4vdrTV>"
+#define EXTERNAL_EVENT_OFFSET  0x10000
 
 class cXMLTVEvent
 {
 private:
-   cString source;
+   cString sourceName;
    tChannelID channelID;
    uint64_t xtEventID;
    tEventID eventid;
@@ -58,8 +59,8 @@ public:
    ~cXMLTVEvent();
    void Clear();
 
-   void SetSource(const char *Source);
-   const char *Source(void) const { return *source; }
+   void SetSourceName(const char *SourceName);
+   const char *SourceName(void) const { return *sourceName; }
 
    void SetChannelID(const char *ChannelID);
    const tChannelID ChannelID(void) const  { return channelID; }
@@ -89,12 +90,12 @@ public:
    void SetVersion(uchar Version) { version = Version; }
    uchar Version() const          { return version; }
 
-   void SetXTEventID(time_t StartTime);
    void SetXTEventID(uint64_t XtEventID) { xtEventID = XtEventID; }
+   uint32_t GenerateEventID(time_t StartTime, uint32_t Offset = 0);
+   void SetXTEventIDFromTime(time_t StartTime);
    uint64_t XTEventID(void) const  { return xtEventID; }
 
    void SetDescription(const char *description = NULL);
-   //void AddDescription(const char *Description);
    const char *Description(void) const { return *description; }
 
    void SetCountry(const char *Country = NULL);
@@ -137,7 +138,7 @@ public:
    int Year() const              { return year; }
 
    void LinkPictures(bool LinkToEventID = false);
-   bool FillEventFromXTEvent(cEvent *Event, uint64_t Flags);
+   void FillEventFromXTEvent(cEvent *Event, uint64_t Flags);
    int CompareEvent(cEvent *Event, int matchOffset = 0);
    bool FetchSeasonEpisode();
 };

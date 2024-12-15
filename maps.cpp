@@ -9,13 +9,13 @@
 #include "maps.h"
 #include "debug.h"
 
-// --------------------------------------------------------------------------------------------------------
-cChannelList::~cChannelList()
+// ================================ cChannelIDList ==============================================
+cChannelIDList::~cChannelIDList()
 {
   Clear();
 }
 
-int cChannelList::IndexOf(tChannelID channelID) const
+int cChannelIDList::IndexOf(tChannelID channelID) const
 {
   for (int i = 0; i < Size(); i++) {
       if (channelID == At(i)->GetChannelID())
@@ -24,15 +24,15 @@ int cChannelList::IndexOf(tChannelID channelID) const
   return -1;
 }
 
-void cChannelList::Clear(void)
+void cChannelIDList::Clear(void)
 {
   for (int i = 0; i < Size(); i++)
       free(At(i));
-  cVector<cChannelIdObject *>::Clear();
+  cVector<cChannelIDObject *>::Clear();
 }
 
-// --------------------------------------------------------------------------------------------------------
-cEPGMapping::cEPGMapping(const char *EPGChannelName, const char *Flags_and_Channels)
+// ================================ cEPGChannel ==============================================
+cEPGChannel::cEPGChannel(const char *EPGChannelName, const char *Flags_and_Channels)
 {  // setup mapping from config entry
    epgChannelName = EPGChannelName;
    flags = USE_NOTHING;
@@ -51,13 +51,12 @@ cEPGMapping::cEPGMapping(const char *EPGChannelName, const char *Flags_and_Chann
                   epgSource = src;
                token++;
             }
-            else if (token == 1)  // read flags
-            {
+            else if (token == 1) { // read flags
                flags = strtoul(strg, NULL, 0);
                token++;
             }
             else {  // channels
-               channelList.AppendUnique(new cChannelIdObject(strg));
+               channelIDList.AppendUnique(new cChannelIDObject(strg));
             }
             strg = strtok_r(NULL, ";", &sp);
          }
@@ -66,12 +65,12 @@ cEPGMapping::cEPGMapping(const char *EPGChannelName, const char *Flags_and_Chann
    }
 
    tsyslog("added mapping for '%s' %s", *epgChannelName, epgSource?epgSource->SourceName() : "No Source");
-   for (int i=0; i < channelList.Size(); i++) {
-      tsyslog(" %2d: '%s'", i, *channelList.At(i)->GetChannelIDString());
+   for (int i = 0; i < channelIDList.Size(); i++) {
+      tsyslog(" %2d: '%s'", i, *channelIDList.At(i)->GetChannelIDString());
    }
 }
 
-cEPGMapping::cEPGMapping(void)
+cEPGChannel::cEPGChannel(void)
 {
    epgChannelName = NULL;
    flags = USE_SHORTTEXT;
@@ -79,146 +78,153 @@ cEPGMapping::cEPGMapping(void)
 }
 
 
-cEPGMapping::cEPGMapping(cEPGMapping *Mapping)
+cEPGChannel::cEPGChannel(cEPGChannel *NewEpgChannel)
 {
-   epgChannelName = Mapping->epgChannelName;
-   SetChannelList(&Mapping->channelList);
-   epgSource = Mapping->EPGSource();
-   flags = Mapping->flags;
+   epgChannelName = NewEpgChannel->epgChannelName;
+   SetChannelIDList(&NewEpgChannel->channelIDList);
+   epgSource = NewEpgChannel->EPGSource();
+   flags = NewEpgChannel->flags;
 }
 
-cEPGMapping::~cEPGMapping()
+cEPGChannel::~cEPGChannel()
 {
-   channelList.Clear();
+   channelIDList.Clear();
 }
 
-cEPGMapping &cEPGMapping::operator= (const cEPGMapping &EpgMapping)
+cEPGChannel &cEPGChannel::operator= (const cEPGChannel &EpgChannel)
 {
-   channelList.Clear();
-   for(int i = 0; i < EpgMapping.channelList.Size(); i++)
-      channelList.AppendUnique(new cChannelIdObject(EpgMapping.channelList.At(i)->GetChannelID()));
+   channelIDList.Clear();
+   for(int i = 0; i < EpgChannel.channelIDList.Size(); i++)
+      channelIDList.AppendUnique(new cChannelIDObject(EpgChannel.channelIDList.At(i)->GetChannelID()));
 
-   epgSource = EpgMapping.epgSource;
-   flags = EpgMapping.flags;
+   flags = EpgChannel.flags;
+   epgSource = EpgChannel.epgSource;
 
    return *this;
 }
 
-cString cEPGMapping::ToString(void)
+cString cEPGChannel::ToString(void)
 {
    cString text = cString::sprintf("%s;0x%" PRIX64, epgSource ? epgSource->SourceName() : "NULL", flags);
 
-   for (int i = 0; i < channelList.Size(); i++)
-   {
+   for (int i = 0; i < channelIDList.Size(); i++) {
       text.Append(";");
-      text.Append(channelList.At(i)->GetChannelIDString());
+      text.Append(channelIDList.At(i)->GetChannelIDString());
    }
    return text;
 }
 
 
-void cEPGMapping::AddChannel(tChannelID ChannelID)
+void cEPGChannel::AddChannel(tChannelID ChannelID)
 {
-   channelList.AppendUnique(new cChannelIdObject(ChannelID));
+   channelIDList.AppendUnique(new cChannelIDObject(ChannelID));
 }
 
-void cEPGMapping::SetChannelList(cChannelList *ChannelList)
+void cEPGChannel::SetChannelIDList(cChannelIDList *ChannelIDList)
 {
-   channelList.Clear();
-   for(int i = 0; i < ChannelList->Size(); i++)
-      channelList.AppendUnique(new cChannelIdObject(ChannelList->At(i)->GetChannelID()));
+   channelIDList.Clear();
+   for(int i = 0; i < ChannelIDList->Size(); i++)
+      channelIDList.AppendUnique(new cChannelIDObject(ChannelIDList->At(i)->GetChannelID()));
 }
 
-void cEPGMapping::RemoveChannel(tChannelID ChannelID, bool MarkOnlyInvalid)
+void cEPGChannel::RemoveChannel(tChannelID ChannelID, bool MarkOnlyInvalid)
 {
-   int ndx = channelList.IndexOf(ChannelID);
+   int ndx = channelIDList.IndexOf(ChannelID);
    if (ndx >= 0)
-      channelList.Remove(ndx);
+      channelIDList.Remove(ndx);
 }
 
-// --------------------------------------------------------------------------------------------------------
-void cEPGMappings::Remove()
+// ================================ cEPGChannels ==============================================
+void cEPGChannels::RemoveAll()
 {
-   cEPGMapping *map;
-   while ((map = Last()) != NULL)
-      Del(map);
+   cEPGChannel *epgChannel;
+   while ((epgChannel = Last()) != NULL)
+      Del(epgChannel);
 }
 
-cEPGSource *cEPGMappings::GetSource(const char *EPGchannelName)
+cEPGSource *cEPGChannels::GetEpgSource(const char *EPGchannelName)
 {
-   cEPGMapping *map = NULL;
+   cEPGChannel *epgChannel = NULL;
    if (EPGchannelName) {
-      map = First();
-      while ((map != NULL) && (strcasecmp(map->EPGChannelName(), EPGchannelName))) {
-         map = Next(map);
+      epgChannel = First();
+      while ((epgChannel != NULL) && (strcasecmp(epgChannel->EPGChannelName(), EPGchannelName))) {
+         epgChannel = Next(epgChannel);
       }
    }
 
-   return map ? map->EPGSource() : NULL;
+   return epgChannel ? epgChannel->EPGSource() : NULL;
 }
 
-cString cEPGMappings::GetActiveEPGChannels(const char *SourceName)
+bool cEPGChannels::HasActiveEPGChannels(const char *SourceName)
 {
-   cString epgChannels = "";
+   cString epgChannelNames = "";
    if (SourceName) {
-      cEPGMapping *map = First();
-      while (map != NULL) {
-         if (map->EPGSource() && !strcmp(SourceName, map->EPGSource()->SourceName())) {
-            if (!isempty(epgChannels)) epgChannels.Append(" ");
-            epgChannels.Append(map->EPGChannelName());
+      cEPGChannel *epgChannel = First();
+      while (epgChannel != NULL) {
+         if (epgChannel->EPGSource() && !strcmp(SourceName, epgChannel->EPGSource()->SourceName())) {
+            return true;
          }
-         map = Next(map);
+         epgChannel = Next(epgChannel);
       }
    }
-   return epgChannels;
+   return false;
+}
+cString cEPGChannels::GetActiveEPGChannels(const char *SourceName)
+{
+   cString epgChannelNames = "";
+   if (SourceName) {
+      cEPGChannel *epgChannel = First();
+      while (epgChannel != NULL) {
+         if (epgChannel->EPGSource() && !strcmp(SourceName, epgChannel->EPGSource()->SourceName())) {
+            if (!isempty(*epgChannelNames)) epgChannelNames.Append(" ");
+            epgChannelNames.Append(epgChannel->EPGChannelName());
+         }
+         epgChannel = Next(epgChannel);
+      }
+   }
+
+   return epgChannelNames;
 }
 
-cEPGMapping* cEPGMappings::GetMap(const char* EpgChannelName)
+cEPGChannel* cEPGChannels::GetEpgChannel(const char* EpgChannelName)
 {
-   if (EpgChannelName && Count())
-   {
-      for (cEPGMapping *map = First(); map; map = Next(map))
-      {
-         if (!strcmp(map->EPGChannelName(), EpgChannelName))
-            return map;
+   if (EpgChannelName && Count()) {
+      for (cEPGChannel *epgChannel = First(); epgChannel; epgChannel = Next(epgChannel)) {
+         if (!strcmp(epgChannel->EPGChannelName(), EpgChannelName))
+            return epgChannel;
       }
    }
    return NULL;
 }
 
-cEPGMapping *cEPGMappings::GetMap(tChannelID ChannelID)
+cEPGChannel *cEPGChannels::GetEpgChannel(tChannelID ChannelID)
 {
-   if (Count())
-   {
-      for (cEPGMapping *map = First(); map; map = Next(map))
-      {
-         for (int x = 0; x < map->ChannelMapList()->Size(); x++)
-         {
-            if (map->ChannelMapList()->At(x)->GetChannelID() == ChannelID) 
-               return map;
+   if (Count()) {
+      for (cEPGChannel *epgChannel = First(); epgChannel; epgChannel = Next(epgChannel)) {
+         for (int x = 0; x < epgChannel->ChannelIDList()->Size(); x++) {
+            if (epgChannel->ChannelIDList()->At(x)->GetChannelID() == ChannelID)
+               return epgChannel;
          }
       }
    }
    return NULL;
 }
 
-void cEPGMappings::SetAllFlags(uint64_t flags)
+void cEPGChannels::SetAllFlags(uint64_t flags)
 {
-   if (Count())
-   {
-      for (cEPGMapping *map = First(); map; map = Next(map))
-      {
-         map->SetFlags(flags);
+   if (Count()) {
+      for (cEPGChannel *epgChannel = First(); epgChannel; epgChannel = Next(epgChannel)) {
+         epgChannel->SetFlags(flags);
       }
    }
 }
 
-bool cEPGMappings::ProcessChannel(const tChannelID ChannelID)
+bool cEPGChannels::ProcessChannel(const tChannelID ChannelID)
 {
    if (Count()) {
       for (int i = 0; i < Count(); i++) {
-         for (int x = 0; x < Get(i)->ChannelMapList()->Size(); x++) {
-            if (Get(i)->ChannelMapList()->At(x)->GetChannelID() == ChannelID) 
+         for (int x = 0; x < Get(i)->ChannelIDList()->Size(); x++) {
+            if (Get(i)->ChannelIDList()->At(x)->GetChannelID() == ChannelID)
                return Get(i)->EPGSource() != NULL;
          }
       }

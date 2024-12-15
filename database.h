@@ -13,6 +13,7 @@
 #include <sqlite3.h>
 #include "event.h"
 #include "source.h"
+#include "maps.h"
 
 #define EPG_DB_FILENAME "xmltv4vdr_EPG.db"
 
@@ -59,7 +60,7 @@ protected:
    };
    bool Transaction_Begin(void);
    bool Transaction_End(bool Commit = true);
-   int  Transaction_Changes(void) { return sqlite3_total_changes(DBHandle); }
+   //int  Transaction_Changes(void) { return sqlite3_total_changes(DBHandle); }
 
    int Analyze(const char *dbName);
 };
@@ -90,40 +91,43 @@ private:
    cString lastSource;
    sqlite3_stmt *stmtUpdateEventSelect;
    sqlite3_stmt *stmtImportXMLTVEventSelect;
-   sqlite3_stmt *stmtImportXMLTVEventUpdate;
-   sqlite3_stmt *stmtImportXMLTVEventInsert;
+   sqlite3_stmt *stmtImportXMLTVEventReplace;
 
    bool CreateDB(void);
    bool IsNewVersion(const cEvent* Event);
    cXMLTVEvent *FillXMLTVEventFromDB(sqlite3_stmt *stmt);
    int UnlinkPictures(const cXMLTVStringList *Pics, const char *ChannelID, const tEventID EventID);
    int UnlinkPictures(const char *Pics, const char *ChannelID, const tEventID EventID);
+   cString ChannelListToString(const cChannelIDList *ChannelIDList);
+   bool DropEventList(int *LinksDeleted, int *EventsDeleted, const char *WhereClause);
 
 public:
    cXMLTVDB(void) { };
-   ~cXMLTVDB() { };
+   ~cXMLTVDB();
    bool OpenDBConnection(bool Create = false);
    bool CloseDBConnection(int Line = 0);
    bool UpgradeDB(bool ForceCreate = false);
    int Analyze(void);
 
    using cXMLTVSQLite::Analyze;
+   using cXMLTVSQLite::Transaction_Begin;
+   using cXMLTVSQLite::Transaction_End;
 
-   bool DropEventList(int *LinksDeleted, int *EventsDeleted, const char * WhereClause);
    void DropOutdatedEvents(time_t EndTime);
    bool CheckConsistency(bool Fix, cXMLTVStringList *CheckResult);
 
-   bool MarkEventsOutdated(cChannelList *ChannelList, const char *SourceName);
-   bool DropOutdatedEvents(cChannelList *ChannelList, const char *SourceName, time_t LastEventStarttime);
-   bool ImportXMLTVEvent(cXMLTVEvent *xevent, cChannelList *ChannelList, const char *SourceName);
-   bool ImportXMLTVEventPrepare(const char *SourceName);
+   bool MarkEventsOutdated(const cChannelIDList *ChannelIDList);
+   bool DropOutdatedEvents(const cChannelIDList *ChannelIDList, time_t LastEventStarttime);
+   bool ImportXMLTVEventPrepare(void);
+   bool ImportXMLTVEvent(cXMLTVEvent *xevent, cChannelIDList *ChannelIDList);
    bool ImportXMLTVEventFinalize();
    bool AddOrphanedPicture(const char *Source, const char *Picture);
-   int DeletePictures(void);
+   int DeleteOrphanedPictures(void);
    bool FillEventFromXTEvent(cEvent *Event, cXMLTVEvent *xEvent, uint64_t Flags);
-   bool UpdateEventPrepare(const char *ChannelID, const char *SourceName);
+   bool UpdateEventPrepare(const char *ChannelID);
+   bool UpdateEvent(cEvent *Event, uint64_t Flags);
    bool UpdateEventFinalize(void);
-   bool UpdateEvent(cEvent *Event, uint64_t Flags, const char *ChannelName, const char *SourceName, time_t LastEventStarttime);
+   bool AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSchedules, int *totalEvents);
    bool DropOutdated(cSchedule *Schedule, time_t SegmentStart, time_t SegmentEnd, uchar TableID, uchar Version);
 };
 

@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: vdr\n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2024-07-10 18:14+0200\n"
+"POT-Creation-Date: 2024-10-27 17:48+0100\n"
 "PO-Revision-Date: 2024-07-13 13:59+0200\n"
 "Last-Translator: Christoph Haubrich <christoph1.haubrich@arcor.de>\n"
 "Language-Team: <vdr@linuxtv.org>\n"
@@ -88,8 +88,8 @@ msgstr "automatisch Aufwachen"
 msgid "fix duplicate Title in Shorttext"
 msgstr "doppelten Titel in Shorttext korr."
 
-msgid "last Episodes Change"
-msgstr "letzte Änderung Episodes"
+msgid "last Episodes Update"
+msgstr "letztes Serien-Update"
 
 msgid "EPG sources (last successful run)"
 msgstr "EPG Quellen (letzter erfolgreicher Lauf)"
@@ -160,6 +160,15 @@ msgstr "Pin"
 msgid "download pictures"
 msgstr "Bilder runterladen"
 
+msgid "only enrich DVB events"
+msgstr "nur DVB anreichern"
+
+msgid "append later ext. events"
+msgstr "spätere ext. Events hinzufügen"
+
+msgid "use only ext. EPG events"
+msgstr "nur ext. Events benutzen"
+
 msgid "movies only"
 msgstr "nur Filme"
 
@@ -186,6 +195,9 @@ msgstr "EPG Quellkanalzuordnungen"
 
 msgid "EPG source channel options"
 msgstr "EPG Quellkanal Optionen"
+
+msgid "ext. EPG events"
+msgstr "ext. EPG Events"
 
 msgid "title"
 msgstr "Titel"

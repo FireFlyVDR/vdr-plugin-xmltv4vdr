@@ -14,13 +14,6 @@
 #define TOKEN_DELIMITER '~'
 #define EVENT_LINGERTIME  (time(NULL) - Setup.EPGLinger * 60)
 
-class cEPGSources;
-class cChannelList;
-class cEPGChannel;
-
-
-class cEPGChannels : public cList<cEPGChannel> {};
-
 // --------------------------------------------------------------------------------------------------------
 class cEPGSource : public cListObject
 {
@@ -39,14 +32,14 @@ private:
    int exec_days;
    int exec_time;
    int maxDaysProvided;
-   cEPGChannels epgChannels;
+   cStringList epgChannels;
    cString log;
    time_t lastEventStartTime;
    time_t lastSuccessfulRun;
    bool ReadConfig(void);
    time_t XmltvTime2UTC(char *xmltvtime);
    int ReadXMLTVfile(char *&xmltv_buffer, size_t &size);
-   int ParseXMLTV(char *buffer, int bufsize, const char *SourceName);
+   int ParseAndImportXMLTV(char *buffer, int bufsize, const char *SourceName);
    bool FillXTEventFromXmlNode(cXMLTVEvent *xtEvent, xmlNodePtr node);
 public:
    cEPGSource(const char *Name);
@@ -58,10 +51,10 @@ public:
    time_t NextRunTime(time_t Now = (time_t)0);
    time_t LastSuccessfulRun()  { return lastSuccessfulRun; };
    void SetLastSuccessfulRun(time_t RunTime) { lastSuccessfulRun = RunTime; };
-   cString GetLog()            { return log; }
+   const char * GetLog()       { return *log; }
    bool Enabled()              { return enabled; }
    void Enable(bool Enable )   { enabled = Enable; }
-   cEPGChannels *ChannelList() { return &epgChannels; }
+   cStringList *EpgChannelList()  { return &epgChannels; }
    int ExecTime()              { return exec_time; }
    void SetExecTime(int Time)  { exec_time = Time; }
    int ExecDays()              { return exec_days; }
@@ -98,8 +91,12 @@ public:
 class cEPGSources : public cList<cEPGSource>, public cThread
 {
 private:
-   bool downloadForced;
-   cEPGSource *downloadSource;
+   cMutex mtxImport;
+   cCondVar cvBlock;
+   cCondWait cwDelay;
+   bool manualStart;
+   std::atomic_bool isImporting;
+   cEPGSource *epgImportSource;
    void RemoveAll();
 public:
    cEPGSources();
@@ -108,10 +105,11 @@ public:
    bool ExecuteNow(time_t time);
    time_t NextRunTime();
    cEPGSource *GetSource(const char *SourceName);
-   void ResetEventStarttimes();
-   bool StartImport(bool forced = false, cEPGSource *Source = NULL);
-   void StopImport()          { Cancel(3); }
-   bool ImportIsRunning()     { return Running(); }
+   void ResetLastEventStarttimes();
+   void StartImport(cEPGSource *Source = NULL);
+   void StopThread();
+   bool ThreadIsRunning()     { return Running(); }
+   bool ImportIsRunning()     { return isImporting; }
    virtual void Action();
 };
 

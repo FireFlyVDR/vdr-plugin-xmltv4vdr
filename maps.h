@@ -64,85 +64,81 @@
 #define SHIFT_PARENTAL_RATING_TEXT 42
 #define PARENTAL_RATING_TEXT     (1ULL << SHIFT_PARENTAL_RATING_TEXT)
 
+#define SHIFT_APPEND_EXT_EVENTS  43
+#define USE_APPEND_EXT_EVENTS    (3ULL << SHIFT_APPEND_EXT_EVENTS)
+#define NO_EXT_EVENTS            0ULL
+#define APPEND_EXT_EVENTS        1ULL
+#define ONLY_EXT_EVENTS          2ULL
+
+
 #define USE_MASK               (USE_TITLE | USE_SHORTTEXT | USE_DESCRIPTION | USE_COUNTRYYEAR | \
                                 USE_ORIGTITLE | USE_CATEGORIES | USE_REVIEW | USE_STAR_RATING | \
-                                USE_SEASON_EPISODE | USE_CREDITS | USE_PARENTAL_RATING)
+                                USE_SEASON_EPISODE | USE_CREDITS | USE_PARENTAL_RATING | USE_APPEND_EXT_EVENTS)
 
 // --------------------------------------------------------------------------------------------------------
-class cChannelIdObject : public tChannelID
+class cChannelIDObject : public tChannelID
 {
 private:
-   tChannelID channelid;
+   tChannelID channelID;
 public:
-   cChannelIdObject(tChannelID ChannelID) { channelid = ChannelID; }
-   cChannelIdObject(const char *ChannelIDString) { channelid = tChannelID::FromString(ChannelIDString); }
-   tChannelID GetChannelID() { return channelid; };
-   cString GetChannelIDString() { return channelid.ToString(); };
+   cChannelIDObject(tChannelID ChannelID) { channelID = ChannelID; }
+   cChannelIDObject(const char *ChannelIDString) { channelID = tChannelID::FromString(ChannelIDString); }
+   tChannelID GetChannelID() { return channelID; };
+   cString GetChannelIDString() { return channelID.ToString(); };
 };
 
-class cChannelList : public cVector<cChannelIdObject *>
+class cChannelIDList : public cVector<cChannelIDObject *>
 {
 public:
-   cChannelList(int Allocated = 4): cVector<cChannelIdObject *>(Allocated) {}
-   virtual ~cChannelList();
+   cChannelIDList(int Allocated = 4): cVector<cChannelIDObject *>(Allocated) {}
+   virtual ~cChannelIDList();
    int IndexOf(tChannelID channelID) const;
    virtual void Clear(void);
 };
 
+class cEPGSource;
 // --------------------------------------------------------------------------------------------------------
 class cEPGChannel : public cListObject
 {
 private:
-   cString name;
-   cChannelList channelList;
-   bool inUse;
-public:
-   cEPGChannel(const char *Name, bool InUse = false);
-   ~cEPGChannel();
-   const char *Name() { return name; }
-   bool InUse() { return inUse; }
-   void SetUsage(bool InUse) { inUse = InUse; }
-   virtual int Compare(const cListObject &ListObject) const;
-};
-
-class cEPGSource;
-// --------------------------------------------------------------------------------------------------------
-class cEPGMapping : public cListObject
-{
-private:
    cString epgChannelName;
-   cChannelList channelList;  // TEST assigned VDR channels
+   cChannelIDList channelIDList;  // TEST assigned VDR channels
    cEPGSource *epgSource;
    uint64_t flags;
 public:
-   cEPGMapping(const char *EpgChannelName, const char *Flags_and_Mappings);
-   cEPGMapping(void);
-   cEPGMapping(cEPGMapping *Mapping);
-   ~cEPGMapping();
-   cEPGMapping &operator= (const cEPGMapping &EpgMapping);
+   cEPGChannel(const char *EpgChannelName, const char *Flags_and_Channels);
+   cEPGChannel(void);
+   cEPGChannel(cEPGChannel *NewEpgChannel);
+   ~cEPGChannel();
+   cEPGChannel &operator= (const cEPGChannel &EpgChannel);
    cString ToString(void);
-   void SetFlags(uint64_t Flags) { flags = Flags; }
-   void SetChannelList(cChannelList *ChannelList);
+   const char *EPGChannelName()             { return *epgChannelName; }
+
    void AddChannel(tChannelID ChannelID);
    void RemoveChannel(tChannelID ChannelID, bool MarkOnlyInvalid = false);
-   cEPGSource *EPGSource()  { return epgSource; }
+
+   void SetFlags(uint64_t Flags)            { flags = Flags; }
+   uint64_t Flags()                         { return flags; }
+
+   void SetChannelIDList(cChannelIDList *ChannelIDList);
+   cChannelIDList *ChannelIDList()          { return &channelIDList; }
+
    void SetEpgSource(cEPGSource *EPGSource) { epgSource = EPGSource; }
-   uint64_t Flags()               { return flags; }
-   const char *EPGChannelName() { return *epgChannelName; }
-   cChannelList *ChannelMapList()  { return &channelList; }
+   cEPGSource *EPGSource()                  { return epgSource; }
 };
 
 // --------------------------------------------------------------------------------------------------------
-class cEPGMappings : public cList<cEPGMapping>
+class cEPGChannels : public cList<cEPGChannel>
 {
 public:
-   cEPGSource *GetSource(const char *EPGchannel);
+   cEPGSource *GetEpgSource(const char *EPGchannel);
+   bool HasActiveEPGChannels(const char *SourceName);
    cString GetActiveEPGChannels(const char *SourceName);
-   cEPGMapping *GetMap(const char *EpgChannelName);
-   cEPGMapping *GetMap(tChannelID ChannelID);
+   cEPGChannel *GetEpgChannel(const char *EpgChannelName);
+   cEPGChannel *GetEpgChannel(tChannelID ChannelID);
    void SetAllFlags(uint64_t flags);
    bool ProcessChannel(tChannelID ChannelID);
-   void Remove();
+   void RemoveAll();
 };
 
 #endif

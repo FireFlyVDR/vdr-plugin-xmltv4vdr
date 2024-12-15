@@ -131,7 +131,7 @@ cXMLTVConfig::~cXMLTVConfig(void)
    XMLTVConfig.Save();
 
    delete epgSources;
-   epgMappings.Remove();
+   epgChannels.RemoveAll();
 }
 
 bool cXMLTVConfig::Load(const char *FileName)
@@ -203,7 +203,7 @@ bool cXMLTVConfig::Parse(const char *Name, const char *Extension, const char *Va
       }
    }
    else if (!strcmp(Section, "channel")) {
-      epgMappings.Add(new cEPGMapping(Name, Value));
+      epgChannels.Add(new cEPGChannel(Name, Value));
    }
 
    return true;
@@ -231,10 +231,10 @@ void cXMLTVConfig::Store(const char *Name, const char *Value, const char *Sectio
    }
 }
 
-void cXMLTVConfig::StoreMapping(cEPGMapping *Mapping)
+void cXMLTVConfig::StoreEpgChannel(cEPGChannel *EpgChannel)
 {
-   if (Mapping)
-      Store(Mapping->EPGChannelName(), *Mapping->ToString(), "channel");
+   if (EpgChannel)
+      Store(EpgChannel->EPGChannelName(), *EpgChannel->ToString(), "channel");
 }
 
 void cXMLTVConfig::StoreSourceParameter(cEPGSource *Source)
@@ -259,8 +259,8 @@ bool cXMLTVConfig::Save(void)
    Store("fixDuplTitleInShortttext", fixDuplTitleInShortttext ? "1" : "0", "options");
    Store("order",  GetDescrSequenceString(), "options");
 
-   for (cEPGMapping *m = epgMappings.First(); m; m = epgMappings.Next(m)) {
-      Store(m->EPGChannelName(), *m->ToString(), "channel");
+   for (cEPGChannel *ch = epgChannels.First(); ch; ch = epgChannels.Next(ch)) {
+      Store(ch->EPGChannelName(), *ch->ToString(), "channel");
    }
 
    Sort();

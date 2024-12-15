@@ -12,7 +12,6 @@
 #define CHNUMWIDTH (numdigits(cChannels::MaxNumber())+1)
 #define NEWTITLE(x) new cOsdItem(cString::sprintf("%s%s%s", "---- ", x, " ----"), osUnknown, false)
 
-
 // ----------------- menu setup field sequence
 class cMenuSetupDescriptionFieldSequence : public cMenuSetupPage
 {
@@ -35,7 +34,7 @@ class cMenuSetupSource : public cMenuSetupPage
 protected:
    virtual void Store(void);
 private:
-   cEPGSource *epgsrc;
+   cEPGSource *epgSrc;
    int *sel;
    time_t day;
    int execDays, execTime;
@@ -58,11 +57,11 @@ class cMenuSetupMapping : public cMenuSetupPage
 protected:
    virtual void Store(void);
 private:
-   cEPGMapping *tmpEPGMapping;
+   cEPGChannel *tmpEpgChannel;
    bool hasMappedChannels;
    uint64_t flags;
 #define MAX_MOVIESSERIES 5
-   const char *optionsEPGAux[4];
+   const char *optionsExtEvents[3];
    const char *optionsMovieSeries[MAX_MOVIESSERIES];
    const char *optionsLines[3];
    const char *optionsYesNo[2];
@@ -73,7 +72,7 @@ private:
    void Set(void);
    int sourceIndex;
    cStringList sourcesList;
-   void Store(cEPGMapping *newmapping, bool replacemapping = true);
+   void Store(cEPGChannel *NewEpgChannel, bool replaceChannel = true);
 public:
    cMenuSetupMapping(const char *EpgChannelName);
    ~cMenuSetupMapping();
@@ -86,11 +85,11 @@ public:
 class cMenuSetupMapping_AddChannel : public cOsdMenu
 {
 private:
-   cEPGMapping *tmpEPGMapping;
+   cEPGChannel *tmpEpgChannel;
    bool epgMappingExists(tChannelID channelid);
    void Set(void);
 public:
-   cMenuSetupMapping_AddChannel(cEPGMapping *tmpEPGMapping);
+   cMenuSetupMapping_AddChannel(cEPGChannel *TmpEpgChannel);
    virtual eOSState ProcessKey(eKeys Key);
 };
 
@@ -209,16 +208,10 @@ void cMenuSetupXmltv4vdr::Set(void)
       mappingBegin = Current() + 1;
       for (int i = 0; i < channelStringList.Size(); i++)
       {
-         cEPGSource *src = XMLTVConfig.EPGMappings()->GetSource(channelStringList[i]);
+         cEPGSource *src = XMLTVConfig.EPGChannels()->GetEpgSource(channelStringList[i]);
          Add(new cOsdItem(cString::sprintf("%s\t%s", channelStringList[i], src ? src->SourceName() : "---"), osUnknown), true);
       }
       mappingEnd = Current();
-#ifdef DEBUG
-      for (cEPGMapping *epgMap = XMLTVConfig.EPGMappings()->First(); epgMap; epgMap = XMLTVConfig.EPGMappings()->Next(epgMap))  // gehe alle EPGsources durch (warum -1 ? EIT?)
-      {
-         tsyslog("mapping: %2d %s # %s", epgMap->ChannelMapList()->Size(), epgMap->EPGSource() ? epgMap->EPGSource()->SourceName() :" --- ", epgMap->EPGChannelName());
-      }
-#endif
    }
    SetCurrent(Get(max(0, current)));
    SetHelpKeys();
@@ -229,15 +222,15 @@ void cMenuSetupXmltv4vdr::generateChannelList()
 {  // generate list of all channels of all sources
    channelStringList.Clear();
 
-   // all EPGchannels of all active sources
-   for (cEPGSource *epgSrc = XMLTVConfig.EPGSources()->First(); epgSrc; epgSrc = XMLTVConfig.EPGSources()->Next(epgSrc)) {
+   cEPGSources *epgSources = XMLTVConfig.EPGSources();
+   for (cEPGSource *epgSrc = epgSources->First(); epgSrc; epgSrc = epgSources->Next(epgSrc))  // gehe alle EPGsources durch (warum -1 ? EIT?)
+   {
       if (epgSrc && epgSrc->Enabled()) {
-         cEPGChannels *srcChannellist = epgSrc->ChannelList();
-         if (srcChannellist) {
-            for (cEPGChannel *epgCha = srcChannellist->First(); epgCha; epgCha = srcChannellist->Next(epgCha)) {
-               if (channelStringList.Find(epgCha->Name()) == -1 )
-                  channelStringList.Append(strdup(epgCha->Name()));
-            }
+         cStringList *epgChannelList = epgSrc->EpgChannelList();
+         for (int i = 0; i < epgChannelList->Size(); i++) {
+            const char *epgChannelName = epgChannelList->At(i);
+            if (!isempty(epgChannelName) && channelStringList.Find(epgChannelName) == -1 )
+               channelStringList.Append(strdup(epgChannelName));
          }
       }
    }
@@ -275,7 +268,7 @@ eOSState cMenuSetupXmltv4vdr::ProcessKey(eKeys Key)
          switch (Key)
          {
             case kRed:
-                  XMLTVConfig.EPGSources()->StartImport(true);
+                  XMLTVConfig.EPGSources()->StartImport();
                   Set();
                   state = osContinue;
                   break;
@@ -453,12 +446,12 @@ void cMenuSetupDescriptionFieldSequence::Store(void)
 
 // --------------------------------------------------------------------------------------------------------
 // sub-menu for each EPG source (main menu blue button (edit)) to select execution, pic download and en/disable each channel)
-cMenuSetupSource::cMenuSetupSource(cEPGSource *epgSrc)
+cMenuSetupSource::cMenuSetupSource(cEPGSource *EpgSrc)
 {
    cPlugin *plugin = cPluginManager::GetPlugin(PLUGIN_NAME_I18N);
    if (!plugin) return;
-   if (!epgSrc) return;
-   epgsrc = epgSrc;
+   if (!EpgSrc) return;
+   epgSrc = EpgSrc;
 
    sel = NULL;
 
@@ -466,13 +459,13 @@ cMenuSetupSource::cMenuSetupSource(cEPGSource *epgSrc)
    pin[0] = 0;
 
    SetPlugin(plugin);
-   SetSection(cString::sprintf("%s '%s' : %s", trVDR("Plugin"), plugin->Name(), epgsrc->SourceName()));
+   SetSection(cString::sprintf("%s '%s' : %s", trVDR("Plugin"), plugin->Name(), epgSrc->SourceName()));
 
-   enabled = epgsrc->Enabled() ? 1 : 0;
-   usePics = epgsrc->UsePics();
-   execDays = epgsrc->ExecDays();
-   execTime = epgsrc->ExecTime();
-   daysInAdvance = epgsrc->DaysInAdvance();
+   enabled = epgSrc->Enabled() ? 1 : 0;
+   usePics = epgSrc->UsePics();
+   execDays = epgSrc->ExecDays();
+   execTime = epgSrc->ExecTime();
+   daysInAdvance = epgSrc->DaysInAdvance();
    Set();
 }
 
@@ -489,19 +482,19 @@ void cMenuSetupSource::Set(void)
    Add(new cMenuEditBoolItem(tr("enabled"), &enabled));
    Add(new cMenuEditDateItem(tr("update on"), &day, &execDays));
    Add(new cMenuEditTimeItem(tr("update at"), &execTime));
-   Add(new cMenuEditIntItem(tr("days in advance"), &daysInAdvance, 1, epgsrc->MaxDaysProvided()));
+   Add(new cMenuEditIntItem(tr("days in advance"), &daysInAdvance, 1, epgSrc->MaxDaysProvided()));
 
-   if (epgsrc->NeedPin())
+   if (epgSrc->NeedPin())
    {
-      if (epgsrc->Pin())
+      if (epgSrc->Pin())
       {
-         strncpy(pin, epgsrc->Pin(), sizeof(pin)-1);
+         strncpy(pin, epgSrc->Pin(), sizeof(pin)-1);
          pin[sizeof(pin)-1] = 0;
       }
       Add(new cMenuEditStrItem(tr("pin"), pin, sizeof(pin)));
    }
 
-   if (epgsrc->HasPics())
+   if (epgSrc->HasPics())
    {
       Add(new cMenuEditBoolItem(tr("download pictures"), &usePics));
    }
@@ -513,7 +506,7 @@ void cMenuSetupSource::Set(void)
 
 void cMenuSetupSource::SetHelpKeys(void)
 {
-   SetHelp(NULL);
+   SetHelp(enabled ? tr("Button$Start Import") : NULL);
 }
 
 eOSState cMenuSetupSource::ProcessKey(eKeys Key)
@@ -524,6 +517,13 @@ eOSState cMenuSetupSource::ProcessKey(eKeys Key)
    {
       switch (Key)
       {
+         case kRed:
+            if (enabled) {
+               Store();
+               XMLTVConfig.EPGSources()->StartImport(epgSrc);
+               state = osBack;
+            }
+            break;
          case kOk:
             Store();
             state = osBack;
@@ -537,39 +537,42 @@ eOSState cMenuSetupSource::ProcessKey(eKeys Key)
             break;
       }
    }
+
+   if (Key != kNone)
+      SetHelpKeys();
+
    return state;
 }
 
 void cMenuSetupSource::Store(void)
 {
-   epgsrc->SetExecTime(execTime);
-   epgsrc->SetExecDays(execDays);
+   epgSrc->SetExecTime(execTime);
+   epgSrc->SetExecDays(execDays);
 
-   epgsrc->Enable(enabled == 1);
-   epgsrc->SetDaysInAdvance(daysInAdvance);
-   if (epgsrc->NeedPin())
-      epgsrc->SetPin(pin);
-   if (epgsrc->HasPics())
-      epgsrc->SetUsePics(usePics);
+   epgSrc->Enable(enabled == 1);
+   epgSrc->SetDaysInAdvance(daysInAdvance);
+   if (epgSrc->NeedPin())
+      epgSrc->SetPin(pin);
+   if (epgSrc->HasPics())
+      epgSrc->SetUsePics(usePics);
 
-   XMLTVConfig.StoreSourceParameter(epgsrc);
+   XMLTVConfig.StoreSourceParameter(epgSrc);
    XMLTVConfig.Save();
 }
 
 // --------------------------------------------------------------------------------------------------------
-// mapping between one external channelID and one or more VDR channels and the corresponding flags
+// mapping between one external EPG channel and one or more VDR channelIDs and the corresponding flags
 cMenuSetupMapping::cMenuSetupMapping(const char *EpgChannelName)
 {
    cPlugin *plugin = cPluginManager::GetPlugin(PLUGIN_NAME_I18N);
    if (!plugin) return;
 
    hasMappedChannels = false;
-   tmpEPGMapping = NULL;
+   tmpEpgChannel = NULL;
    flags = 0;
-   //optionsEPGAux[0] = tr("images");
-   //optionsEPGAux[1] = tr("EPG and images");
-   //optionsEPGAux[2] = tr("Aux field and images");
-   //optionsEPGAux[3] = tr("EPG, Aux field and images");
+   optionsExtEvents[0] = tr("only enrich DVB events");
+   optionsExtEvents[1] = tr("append later ext. events");
+   optionsExtEvents[2] = tr("use only ext. EPG events");
    optionsMovieSeries[0] = trVDR("no");
    optionsMovieSeries[1] = tr("movies only");
    optionsMovieSeries[2] = tr("series only");
@@ -583,15 +586,15 @@ cMenuSetupMapping::cMenuSetupMapping(const char *EpgChannelName)
 
    SetPlugin(plugin);
 
-   cEPGMapping* epgMapping = XMLTVConfig.EPGMappings()->GetMap(EpgChannelName);
-   if (epgMapping)
-      tmpEPGMapping = new cEPGMapping(epgMapping);
+   cEPGChannel* epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel(EpgChannelName);
+   if (epgChannel)
+      tmpEpgChannel = new cEPGChannel(epgChannel);
    else
-      tmpEPGMapping = new cEPGMapping(EpgChannelName, NULL); // no mapping yet, create an empty one
+      tmpEpgChannel = new cEPGChannel(EpgChannelName, NULL); // no mapping yet, create an empty one
 
-   SetTitle(*cString::sprintf("%s - %s '%s': %s", trVDR("Setup"), trVDR("Plugin"), plugin->Name(), tmpEPGMapping->EPGChannelName()));
+   SetTitle(*cString::sprintf("%s - %s '%s': %s", trVDR("Setup"), trVDR("Plugin"), plugin->Name(), tmpEpgChannel->EPGChannelName()));
 
-   flags = tmpEPGMapping->Flags();
+   flags = tmpEpgChannel->Flags();
    c1 = c2 = c3 = c4 = c5 = 0;
 
    // setup array of available sources
@@ -599,10 +602,13 @@ cMenuSetupMapping::cMenuSetupMapping(const char *EpgChannelName)
    int i = 0;
    sourcesList.Append(strdup(trVDR("none")));
    for (cEPGSource *src = XMLTVConfig.EPGSources()->First(); src; src = XMLTVConfig.EPGSources()->Next(src)) {
-      if (src->Enabled() && src->ProvidesChannel(tmpEPGMapping->EPGChannelName())) {
-         sourcesList.Append(strdup(src->SourceName()));
+      if (src->ProvidesChannel(tmpEpgChannel->EPGChannelName())) {
+         if (src->Enabled())
+            sourcesList.Append(strdup(src->SourceName()));
+         else
+            sourcesList.Append(strdup(*cString::sprintf("%s (%s)", src->SourceName(), tr("disabled"))));
          i++;
-         if (tmpEPGMapping->EPGSource() && !(strcmp(src->SourceName(), tmpEPGMapping->EPGSource()->SourceName())))
+         if (tmpEpgChannel->EPGSource() && !(strcmp(src->SourceName(), tmpEpgChannel->EPGSource()->SourceName())))
             sourceIndex = i;
       }
    }
@@ -612,7 +618,7 @@ cMenuSetupMapping::cMenuSetupMapping(const char *EpgChannelName)
 
 cMenuSetupMapping::~cMenuSetupMapping()
 {
-   delete tmpEPGMapping;
+   delete tmpEpgChannel;
 }
 
 
@@ -629,12 +635,12 @@ void cMenuSetupMapping::Set(void)
 
    Add(NEWTITLE(tr("EPG source channel mappings")), true);
    lineMap = Current();
-   for (int i = 0; i < tmpEPGMapping->ChannelMapList()->Size(); i++)
+   for (int i = 0; i < tmpEpgChannel->ChannelIDList()->Size(); i++)
    {
       LOCK_CHANNELS_READ
       if (Channels)
       {
-         const cChannel *chan = Channels->GetByChannelID(tmpEPGMapping->ChannelMapList()->At(i)->GetChannelID());
+         const cChannel *chan = Channels->GetByChannelID(tmpEpgChannel->ChannelIDList()->At(i)->GetChannelID());
          if (chan)
          {
             cString buffer = cString::sprintf("%*i %s", CHNUMWIDTH, chan->Number(), chan->Name());
@@ -653,64 +659,45 @@ void cMenuSetupMapping::Set(void)
    lineOpts = Current();
 
    c1 = Current();
-   //Add(new cMenuEditMultiBitItem(tr("add to"), &flags, USE_CATEGORY_MASK, 0, 4, optionsEPGAux), true);
-   //c1Add = Current();
-   bool selectable = true; //(flags & USE_DESC_OR_AUX) > 0;
-   cOsdItem *tmpItem;
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("title"), &flags, USE_TITLE, SHIFT_TITLE, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   //tmpItem->SetSelectable(selectable);
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("short text"), &flags, USE_SHORTTEXT, SHIFT_SHORTTEXT, MAX_MOVIESSERIES, optionsMovieSeries),true);
-   //tmpItem->SetSelectable(selectable);
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("description"), &flags, USE_DESCRIPTION, SHIFT_DESCRIPTION, MAX_MOVIESSERIES, optionsMovieSeries),true);
-   //tmpItem->SetSelectable(selectable);
+   Add(new cMenuEditMultiBitItem(tr("ext. EPG events"), &flags, USE_APPEND_EXT_EVENTS, SHIFT_APPEND_EXT_EVENTS, 3, optionsExtEvents), true);
+   Add(new cMenuEditMultiBitItem(tr("title"), &flags, USE_TITLE, SHIFT_TITLE, MAX_MOVIESSERIES, optionsMovieSeries), true);
+   Add(new cMenuEditMultiBitItem(tr("short text"), &flags, USE_SHORTTEXT, SHIFT_SHORTTEXT, MAX_MOVIESSERIES, optionsMovieSeries),true);
+   Add(new cMenuEditMultiBitItem(tr("description"), &flags, USE_DESCRIPTION, SHIFT_DESCRIPTION, MAX_MOVIESSERIES, optionsMovieSeries),true);
 
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("country and date"), &flags, USE_COUNTRYYEAR, SHIFT_COUNTRYYEAR, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   //tmpItem->SetSelectable(selectable);
+   Add(new cMenuEditMultiBitItem(tr("country and date"), &flags, USE_COUNTRYYEAR, SHIFT_COUNTRYYEAR, MAX_MOVIESSERIES, optionsMovieSeries), true);
 
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("original title"), &flags, USE_ORIGTITLE, SHIFT_ORIGTITLE, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   //tmpItem->SetSelectable(selectable);
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("category"), &flags, USE_CATEGORIES, SHIFT_CATEGORIES, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   //tmpItem->SetSelectable(selectable);
+   Add(new cMenuEditMultiBitItem(tr("original title"), &flags, USE_ORIGTITLE, SHIFT_ORIGTITLE, MAX_MOVIESSERIES, optionsMovieSeries), true);
+   Add(new cMenuEditMultiBitItem(tr("category"), &flags, USE_CATEGORIES, SHIFT_CATEGORIES, MAX_MOVIESSERIES, optionsMovieSeries), true);
 
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("credits"), &flags, USE_CREDITS, SHIFT_CREDITS, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   //tmpItem->SetSelectable(selectable);
+   Add(new cMenuEditMultiBitItem(tr("credits"), &flags, USE_CREDITS, SHIFT_CREDITS, MAX_MOVIESSERIES, optionsMovieSeries), true);
    c2 = Current();
    if ((flags & USE_CREDITS) > 0)
    {
       // TRANSLATORS: note the leading blank!
-      Add(tmpItem = new cMenuEditMultiBitItem(tr(" director"), &flags, CREDITS_DIRECTORS, SHIFT_CREDITS_DIRECTORS, 2, optionsYesNo), true);
-      //tmpItem->SetSelectable(selectable);
+      Add(new cMenuEditMultiBitItem(tr(" director"), &flags, CREDITS_DIRECTORS, SHIFT_CREDITS_DIRECTORS, 2, optionsYesNo), true);
       // TRANSLATORS: note the leading blank!
-      Add(tmpItem = new cMenuEditMultiBitItem(tr(" actors"), &flags, CREDITS_ACTORS, SHIFT_CREDITS_ACTORS, 3, optionsLines), true);
-      //tmpItem->SetSelectable(selectable);
+      Add(new cMenuEditMultiBitItem(tr(" actors"), &flags, CREDITS_ACTORS, SHIFT_CREDITS_ACTORS, 3, optionsLines), true);
       // TRANSLATORS: note the leading blank!
-      Add(tmpItem = new cMenuEditMultiBitItem(tr(" other crew"), &flags, CREDITS_OTHERS, SHIFT_CREDITS_OTHERS, 2, optionsYesNo), true);
-      //tmpItem->SetSelectable(selectable);
+      Add(new cMenuEditMultiBitItem(tr(" other crew"), &flags, CREDITS_OTHERS, SHIFT_CREDITS_OTHERS, 2, optionsYesNo), true);
    }
 
    c3 = Current();
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("parental rating"), &flags, USE_PARENTAL_RATING, SHIFT_PARENTAL_RATING, 2, optionsYesNo), true);
-   //tmpItem->SetSelectable(selectable);
+   Add(new cMenuEditMultiBitItem(tr("parental rating"), &flags, USE_PARENTAL_RATING, SHIFT_PARENTAL_RATING, 2, optionsYesNo), true);
    c4 = Current();
    if ((flags & USE_PARENTAL_RATING) > 0)
    {
       // TRANSLATORS: note the leading blank!
-      Add(tmpItem = new cMenuEditMultiBitItem(tr(" parental rating as text"), &flags, PARENTAL_RATING_TEXT, SHIFT_PARENTAL_RATING_TEXT, 2, optionsYesNo), true);
-      //tmpItem->SetSelectable(selectable);
+      Add(new cMenuEditMultiBitItem(tr(" parental rating as text"), &flags, PARENTAL_RATING_TEXT, SHIFT_PARENTAL_RATING_TEXT, 2, optionsYesNo), true);
    }
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("starrating"), &flags, USE_STAR_RATING, SHIFT_STAR_RATING, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   //tmpItem->SetSelectable(selectable);
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("review"), &flags, USE_REVIEW, SHIFT_REVIEW, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   //tmpItem->SetSelectable(selectable);
+   Add(new cMenuEditMultiBitItem(tr("starrating"), &flags, USE_STAR_RATING, SHIFT_STAR_RATING, MAX_MOVIESSERIES, optionsMovieSeries), true);
+   Add(new cMenuEditMultiBitItem(tr("review"), &flags, USE_REVIEW, SHIFT_REVIEW, MAX_MOVIESSERIES, optionsMovieSeries), true);
+   Add(new cMenuEditMultiBitItem(tr("season and episode"), &flags, USE_SEASON_EPISODE, SHIFT_SEASON_EPISODE, MAX_MOVIESSERIES, optionsMovieSeries), true);
 
-   Add(tmpItem = new cMenuEditMultiBitItem(tr("season and episode"), &flags, USE_SEASON_EPISODE, SHIFT_SEASON_EPISODE, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   //tmpItem->SetSelectable(selectable);
    c5 = Current();
    if ((flags & USE_SEASON_EPISODE) > 0)
    {
       // TRANSLATORS: note the leading blank!
-      Add(tmpItem = new cMenuEditMultiBitItem(tr(" display"), &flags, USE_SEASON_EPISODE_MULTILINE, SHIFT_SEASON_EPISODE_MULTILINE, 2, &optionsLines[1]), true);
-      //tmpItem->SetSelectable(selectable);
+      Add(new cMenuEditMultiBitItem(tr(" display"), &flags, USE_SEASON_EPISODE_MULTILINE, SHIFT_SEASON_EPISODE_MULTILINE, 2, &optionsLines[1]), true);
    }
 
    if (current == lineMap)
@@ -726,7 +713,7 @@ void cMenuSetupMapping::Set(void)
 void cMenuSetupMapping::SetHelpKeys(void)
 {
    if (Current() > lineOpts) {
-      if (XMLTVConfig.EPGMappings())   // no Mappings yet => no keys
+      if (XMLTVConfig.EPGChannels())   // no Mappings yet => no keys
          SetHelp(NULL, NULL, tr("Button$Reset"), tr("Button$Copy"));   // reset & copy settings => active below channel mapping
       else
          SetHelp(NULL);
@@ -751,7 +738,7 @@ eOSState cMenuSetupMapping::ProcessKey(eKeys Key)
       switch ((int)Key)
       {
          case kOk:
-            tmpEPGMapping->SetEpgSource(XMLTVConfig.EPGSources()->GetSource(sourcesList[sourceIndex]));
+            tmpEpgChannel->SetEpgSource(XMLTVConfig.EPGSources()->GetSource(sourcesList[sourceIndex]));
             Store();
             state = osBack;
             break;
@@ -764,10 +751,10 @@ eOSState cMenuSetupMapping::ProcessKey(eKeys Key)
             if (Current() > lineMap && Current() < lineOpts) {
                item = Get(Current());
                if (item) {
-                  if (tmpEPGMapping) {
+                  if (tmpEpgChannel) {
                      {
                         LOCK_CHANNELS_READ
-                        tmpEPGMapping->RemoveChannel(Channels->GetByNumber(atoi(item->Text()))->GetChannelID());
+                        tmpEpgChannel->RemoveChannel(Channels->GetByNumber(atoi(item->Text()))->GetChannelID());
                      }
                      Set();
                      state = osContinue;
@@ -778,14 +765,14 @@ eOSState cMenuSetupMapping::ProcessKey(eKeys Key)
 
          case kGreen: // add channel
             if (Current() > lineMap && Current() <= lineOpts)
-               return AddSubMenu(new cMenuSetupMapping_AddChannel(tmpEPGMapping));
+               return AddSubMenu(new cMenuSetupMapping_AddChannel(tmpEpgChannel));
             break;
 
          case kYellow: // reset all channels to previous mapping (?) - Delete all flags!
-            if ((Current() > lineOpts) && XMLTVConfig.EPGMappings()) {
+            if ((Current() > lineOpts) && XMLTVConfig.EPGChannels()) {
                if (Skins.Message(mtInfo, tr("Reset channel options of all channels?")) == kOk) {
                   flags = 0;   // Reset all flags to 0x00
-                  XMLTVConfig.EPGMappings()->SetAllFlags(flags);
+                  XMLTVConfig.EPGChannels()->SetAllFlags(flags);
                   XMLTVConfig.Save();
                   Set();
                   state = osContinue;
@@ -794,9 +781,9 @@ eOSState cMenuSetupMapping::ProcessKey(eKeys Key)
             break;
 
          case kBlue: // copy current mapping to all channels - or just flags without Source?
-            if ((Current() > lineOpts) && XMLTVConfig.EPGMappings()) {
+            if ((Current() > lineOpts) && XMLTVConfig.EPGChannels()) {
                if (Skins.Message(mtInfo, tr("Copy options to all channels?")) == kOk) {
-                  XMLTVConfig.EPGMappings()->SetAllFlags(flags);
+                  XMLTVConfig.EPGChannels()->SetAllFlags(flags);
                   XMLTVConfig.Save();
                   Set();
                   state = osContinue;
@@ -826,26 +813,26 @@ eOSState cMenuSetupMapping::ProcessKey(eKeys Key)
 
 void cMenuSetupMapping::Store()  // required by inherited class cMenuSetupPage
 {
-   cEPGMapping *map = XMLTVConfig.EPGMappings()->GetMap(tmpEPGMapping->EPGChannelName());
-   tmpEPGMapping->SetFlags(flags);
-   if (!map) {  // create new mapping
-      XMLTVConfig.EPGMappings()->Add(new cEPGMapping(tmpEPGMapping));
+   cEPGChannel *epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel(tmpEpgChannel->EPGChannelName());
+   tmpEpgChannel->SetFlags(flags);
+   if (!epgChannel) {  // create new mapping
+      XMLTVConfig.EPGChannels()->Add(new cEPGChannel(tmpEpgChannel));
    }
    else {  // copy new mapping to exisitng one
-      *map = *tmpEPGMapping;
+      *epgChannel = *tmpEpgChannel;
    }
    XMLTVConfig.Save();
 }
 
 
 // --------------------------------------------------------------------------------------------------------
-cMenuSetupMapping_AddChannel::cMenuSetupMapping_AddChannel(cEPGMapping *TmpEPGMapping)
+cMenuSetupMapping_AddChannel::cMenuSetupMapping_AddChannel(cEPGChannel *TmpEpgChannel)
 :cOsdMenu("", CHNUMWIDTH)
 {
-   tmpEPGMapping = TmpEPGMapping;
+   tmpEpgChannel = TmpEpgChannel;
    SetHelp(NULL, NULL, tr("Button$Choose"));
    cPlugin *plugin = cPluginManager::GetPlugin(PLUGIN_NAME_I18N);
-   SetTitle(*cString::sprintf("%s - %s '%s' : %s", trVDR("Setup"), trVDR("Plugin"), plugin->Name(), TmpEPGMapping->EPGChannelName()));
+   SetTitle(*cString::sprintf("%s - %s '%s' : %s", trVDR("Setup"), trVDR("Plugin"), plugin->Name(), TmpEpgChannel->EPGChannelName()));
 
    Set();
 }
@@ -870,22 +857,22 @@ void cMenuSetupMapping_AddChannel::Set()
 
 bool cMenuSetupMapping_AddChannel::epgMappingExists(tChannelID channelid)
 {  // returns true if a mapping exists in any map list
-   if (!XMLTVConfig.EPGMappings() || !XMLTVConfig.EPGMappings()->Count())
+   if (!XMLTVConfig.EPGChannels() || !XMLTVConfig.EPGChannels()->Count())
       return false;
 
-   for (int i = 0; i < XMLTVConfig.EPGMappings()->Count(); i++)
+   for (int i = 0; i < XMLTVConfig.EPGChannels()->Count(); i++)
    {
-      cEPGMapping *mapping = XMLTVConfig.EPGMappings()->Get(i);
-      for (int x = 0; x < mapping->ChannelMapList()->Size(); x++)
+      cEPGChannel *epgChannel = XMLTVConfig.EPGChannels()->Get(i);
+      for (int x = 0; x < epgChannel->ChannelIDList()->Size(); x++)
       {
-         if (mapping->ChannelMapList()->At(x)->GetChannelID() == channelid)
+         if (epgChannel->ChannelIDList()->At(x)->GetChannelID() == channelid)
             return true;
       }
    }
 
-   for (int x = 0; x < tmpEPGMapping->ChannelMapList()->Size(); x++)
+   for (int x = 0; x < tmpEpgChannel->ChannelIDList()->Size(); x++)
    {
-      if (tmpEPGMapping->ChannelMapList()->At(x)->GetChannelID() == channelid)
+      if (tmpEpgChannel->ChannelIDList()->At(x)->GetChannelID() == channelid)
          return true;
    }
 
@@ -909,7 +896,7 @@ eOSState cMenuSetupMapping_AddChannel::ProcessKey(eKeys Key)
             if (item)
             {
                LOCK_CHANNELS_READ
-               tmpEPGMapping->AddChannel(Channels->GetByNumber( atoi(item->Text()) )->GetChannelID());
+               tmpEpgChannel->AddChannel(Channels->GetByNumber( atoi(item->Text()) )->GetChannelID());
             }
             state = osBack;
             break;
@@ -1025,9 +1012,9 @@ void cMenuSetupLog::Set(void)
                            source->ImportActive() ? tr("active") : (nextrun ?  nextrun_str : "-"));
    text.Append(cString::sprintf("---- %s (%s) ----\n", tr("log"), level == VIEW_ERROR ? tr("Button$Errors") : 
                    level == VIEW_INFO ? tr("Button$Info") : tr("Button$Debug")));
-   if (source && !isempty(*source->GetLog()))
+   if (source && !isempty(source->GetLog()))
    {
-      char *log = strdup(*source->GetLog());
+      char *log = strdup(source->GetLog());
       if (log)
       {
          char *saveptr;

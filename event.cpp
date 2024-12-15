@@ -74,7 +74,7 @@ cXMLTVEvent::~cXMLTVEvent()
 
 void cXMLTVEvent::Clear()
 {
-   source = NULL;
+   sourceName = NULL;
    channelID = tChannelID::InvalidID;
    starttime = 0;
    duration = 0;
@@ -98,10 +98,10 @@ void cXMLTVEvent::Clear()
    episodeOverall = 0;
 }
 
-void cXMLTVEvent::SetSource(const char *Source)
+void cXMLTVEvent::SetSourceName(const char *SourceName)
 {
-   source = Source;
-   source.CompactChars(' ');
+   sourceName = SourceName;
+   sourceName.CompactChars(' ');
 }
 
 void cXMLTVEvent::SetChannelID(const char *ChannelID)
@@ -129,25 +129,24 @@ void cXMLTVEvent::SetDescription(const char *Description)
    description = Description;
 }
 
-void cXMLTVEvent::SetXTEventID(time_t StartTime)
+uint32_t cXMLTVEvent::GenerateEventID(time_t StartTime, uint32_t Offset)
+{  /// Generate eventID from Time and DoM
+   /// cycles every month
+   struct tm tm;
+   localtime_r(&StartTime, &tm);
+   uint32_t newID = (tm.tm_mday & 0x1F) << 11;
+   newID |= (tm.tm_hour & 0x1F) << 6;
+   newID |= (tm.tm_min & 0x3F);
+   return newID | Offset;
+}
+
+void cXMLTVEvent::SetXTEventIDFromTime(time_t StartTime)
 {  /// create and set extEventID from start time
    /// channel is not taken into account, only start time
    /// but needs only to be uniqe per channel
 
-   if (xtEventID) return;
-   // create own 16bit eventid
-   struct tm tm;
-   if (!localtime_r(&StartTime, &tm)) return;
-
-   // this id cycles every 31 days, so if we have
-   // 4 weeks programme in advance the id will
-   // occupy already existing entries
-   // till now, I'm only aware of 2 weeks
-   // programme in advance
-   int newid = ((tm.tm_mday) & 0x1F) << 11;
-   newid |= ((tm.tm_hour & 0x1F) << 6);
-   newid |= (tm.tm_min & 0x3F);
-   xtEventID = newid & 0xFFFF;
+   if (!xtEventID)
+      xtEventID = GenerateEventID(StartTime);
 }
 
 void cXMLTVEvent::SetCountry(const char *Country)
@@ -236,7 +235,7 @@ void cXMLTVEvent::LinkPictures(bool LinkToEventID)
 
          cString lnk;
          struct stat statbuf;
-         cString tgt = cString::sprintf("%s/%s-img/%s", XMLTVConfig.EPGSourcesDir(), *source, pics[i]);
+         cString tgt = cString::sprintf("%s/%s-img/%s", XMLTVConfig.EPGSourcesDir(), *sourceName, pics[i]);
 
          // link to EventID.jpg without channelID
          if (LinkToEventID)
@@ -279,11 +278,8 @@ bool cXMLTVEvent::evaluateFlags(uint64_t Flags, bool isMovie, bool isSeries)
 
 #define USE_FLAGS(Type) ((Flags & USE_##Type) >> SHIFT_##Type)
 
-bool cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
+void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
 {  /// modififies existing VDR Event
-   /// return true if Event was modified
-
-   bool modified = false;
    const char *creditTypes[10] = {  // dummy array for gettext translations
       trNOOP("director"),
       trNOOP("actor"),
@@ -341,26 +337,24 @@ bool cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
 
          // replace title
          if (evaluateFlags(USE_FLAGS(TITLE), isMovie, isSeries)) {
-            if (!isempty(title)) {
-               if (!Event->Title() || strcmp(Event->Title(), title)) {  // VDR Title empty
-                  tsyslog("changing Title from \"%s\" to \"%s\"", Event->Title(), title);
-                  Event->SetTitle(title);
-                  modified = true;
+            if (!isempty(*title)) {
+               if (!Event->Title() || strcmp(Event->Title(), *title)) {  // VDR Title empty
+                  tsyslog("changing Title from \"%s\" to \"%s\"", Event->Title(), *title);
+                  Event->SetTitle(*title);
                }
             }
          }
 
          // replace short text
          if (evaluateFlags(USE_FLAGS(SHORTTEXT), isMovie, isSeries)) {
-            if (!isempty(shortText)) {
-               if (!strcasecmp(shortText, Event->Title())) { // remove Shorttext if identical to Title
+            if (!isempty(*shortText)) {
+               if (!strcasecmp(*shortText, Event->Title())) { // remove Shorttext if identical to Title
                   Event->SetShortText(NULL);
                }
                else {
-                  if (!Event->ShortText() || strcmp(Event->ShortText(), shortText)) {
-                     tsyslog("changing Shorttext2 from \"%s\" to \"%s\"", Event->ShortText(), shortText);
-                     Event->SetShortText(shortText);
-                     modified = true;
+                  if (!Event->ShortText() || strcmp(Event->ShortText(), *shortText)) {
+                     tsyslog("changing Shorttext2 from \"%s\" to \"%s\"", Event->ShortText(), *shortText);
+                     Event->SetShortText(*shortText);
                   }
                }
             }
@@ -375,162 +369,157 @@ bool cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
          //desc.Append(*cString::sprintf("XMLTV: %s%s%s\n", isMovie?"Movie":"", (isMovie && isSeries) ? ", " : "", isSeries?"Serie":""));
          struct descriptionSeq sequence = XMLTVConfig.GetDescrSequence();
 
-         //if (Flags & USE_IN_DESC)
-         {
-            for (int i = 0; i < DESC_COUNT; i++) {
-               switch (sequence.seq[i]) {
-                  case DESC_DESC:   if (evaluateFlags(USE_FLAGS(DESCRIPTION), isMovie, isSeries) && !isempty(description)) {
-                                       //desc.Append(*cString::sprintf("%s%s", nonEmpty ? "\nX:" : "X:", *description));
+         for (int i = 0; i < DESC_COUNT; i++) {
+            switch (sequence.seq[i]) {
+               case DESC_DESC:   if (evaluateFlags(USE_FLAGS(DESCRIPTION), isMovie, isSeries) && !isempty(*description)) {
+                                    //desc.Append(*cString::sprintf("%s%s", nonEmpty ? "\nX:" : "X:", *description));
+                                    if (nonEmpty) desc.Append("\n");
+                                    desc.Append(*description);
+                                 }
+                                 else {  // no xt description => take DVB Description (if any)
+                                    if (!isempty(Event->Description())) {
+                                       //desc.Append(*cString::sprintf("%s%s", nonEmpty ? "\n" : "", Event->Description()));
                                        if (nonEmpty) desc.Append("\n");
-                                       desc.Append(*description);
+                                       desc.Append(Event->Description());
                                     }
-                                    else {  // no xt description => take DVB Description (if any)
-                                       if (!isempty(Event->Description())) {
-                                          //desc.Append(*cString::sprintf("%s%s", nonEmpty ? "\n" : "", Event->Description()));
-                                          if (nonEmpty) desc.Append("\n");
-                                          desc.Append(Event->Description());
-                                       }
-                                    }
-                                    nonEmpty = true;
-                                    break;
-                  case DESC_CRED:   if (evaluateFlags(USE_FLAGS(CREDITS), isMovie, isSeries)) {
-                                       bool isActor = false;
-                                       const char *mline = ((Flags & CREDITS_ACTORS) == CREDITS_ACTORS_MULTILINE) ? "\n   " : ", ";
-                                       for (int i = 0; i < credits.Size(); i++) {
-                                          cString before, middle, after;
-                                          int parts = strsplit(credits.At(i), '~', before, middle, after);
-                                          if (!strcasecmp(*before, "director")) {
-                                             if (Flags & CREDITS_DIRECTORS) {
-                                                desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("director"), *after));
-                                                isActor = false;
-                                                nonEmpty = true;
-                                             }
-                                          }
-                                          else if(!strcasecmp(*before, "actor")) {
-                                             if (Flags & CREDITS_ACTORS) {
-                                                if (!isActor) {
-                                                   desc.Append(*cString::sprintf("%s%s: ", nonEmpty ? "\n" : "", tr("actor")));
-                                                }
-                                                if (parts == 3)
-                                                   desc.Append(*cString::sprintf("%s%s (%s)", isActor ? mline : "", *middle, *after));
-                                                else
-                                                   desc.Append(*cString::sprintf("%s%s", isActor ? mline : "", *after));
-                                                isActor = true;
-                                                nonEmpty = true;
-                                             }
-                                          }
-                                          else {
-                                             if (Flags & CREDITS_OTHERS) {
-                                                desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr(*before), *after));
-                                                isActor = false;
-                                                nonEmpty = true;
-                                             }
-                                          }
-                                       }
-                                    }
-                                    break;
-                  case DESC_COYR:   if (evaluateFlags(USE_FLAGS(COUNTRYYEAR), isMovie, isSeries)) {
-                                       if (!isempty(*country)) {
-                                          desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("country"), *country));
-                                          nonEmpty = true;
-                                       }
-
-                                       if (year) {
-                                          desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? (!isempty(*country)?", " : "\n") : "", tr("year"), year));
-                                          nonEmpty = true;
-                                       }
-                                    }
-                                    break;
-                  case DESC_ORGT:   if (evaluateFlags(USE_FLAGS(ORIGTITLE), isMovie, isSeries)) {
-                                       if (!isempty(*origTitle)) {
-                                          desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("original title"), *origTitle));
-                                          nonEmpty = true;
-                                       }
-                                    }
-                                    break;
-                  case DESC_CATG:   if (evaluateFlags(USE_FLAGS(CATEGORIES), isMovie, isSeries)) {
-                                       if (category.Size()) {
-                                          desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("category"), category.ToString(", ")));
-                                          nonEmpty = true;
-                                       }
-                                    }
-                                    break;
-                  case DESC_SEAS:   if (evaluateFlags(USE_FLAGS(SEASON_EPISODE), isMovie, isSeries)) {
-                                       bool seasonLine = false;
-                                       if (season) {
-                                          desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? "\n" : "", tr("season"), season));
-                                          //desc.Append(*cString::sprintf("%s: %d\n", tr("season"), season));
-                                          nonEmpty = true;
-                                          seasonLine = (Flags & USE_SEASON_EPISODE_MULTILINE) == 0;
-                                          xmlAux.Append(cString::sprintf("<season>%d</season>", season));
-                                       }
-
-                                       if (episode) {
-                                          desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? (seasonLine?", " : "\n") : "", tr("episode"), episode));
-                                          //desc.Append(*cString::sprintf("%s: %d\n", tr("episode"), episode));
-                                          nonEmpty = true;
-                                          //seasonLine = true;
-                                          seasonLine = (Flags & USE_SEASON_EPISODE_MULTILINE) == 0;
-                                          xmlAux.Append(cString::sprintf("<episode>%d</episode>", episode));
-                                       }
-
-                                       if (episodeOverall) {
-                                          desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? (seasonLine?", " : "\n") : "", tr("overall episode"), episodeOverall));
-                                          //desc.Append(*cString::sprintf("%s: %d\n", tr("overall episode"), episodeOverall));
-                                          nonEmpty = true;
-                                          xmlAux.Append(cString::sprintf("<episodeOverall>%d</episodeOverall>", episodeOverall));
-                                       }
-                                    }
-                                    break;
-                  case DESC_PRAT:   if (evaluateFlags(USE_FLAGS(PARENTAL_RATING), isMovie, isSeries)) {
-                                       if (parentalRating.Size()) {
-                                          bool ratingText = (Flags & PARENTAL_RATING_TEXT) == PARENTAL_RATING_TEXT;
-                                          if (ratingText)
-                                          {
-                                             desc.Append(*cString::sprintf("%s%s: ", nonEmpty ? "\n" : "", tr("parental rating")));
+                                 }
+                                 nonEmpty = true;
+                                 break;
+               case DESC_CRED:   if (evaluateFlags(USE_FLAGS(CREDITS), isMovie, isSeries)) {
+                                    bool isActor = false;
+                                    const char *mline = ((Flags & CREDITS_ACTORS) == CREDITS_ACTORS_MULTILINE) ? "\n   " : ", ";
+                                    for (int i = 0; i < credits.Size(); i++) {
+                                       cString before, middle, after;
+                                       int parts = strsplit(credits.At(i), '~', before, middle, after);
+                                       if (!strcasecmp(*before, "director")) {
+                                          if (Flags & CREDITS_DIRECTORS) {
+                                             desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("director"), *after));
+                                             isActor = false;
                                              nonEmpty = true;
                                           }
-                                          int xtAge = 19;
-                                          for (int i = 0; i < parentalRating.Size(); i++) {
-                                             cString before, middle, after;
-                                             strsplit(parentalRating.At(i), '~', before, middle, after);
-                                             if (ratingText)
-                                                desc.Append(*cString::sprintf("%s%s: %s", i > 0 ? ", " : "", *before, *after));
-                                             int pr = atoi(*after);
-                                             if (pr > 0 && pr < xtAge) xtAge = pr;
-                                          }
-                                          int dvbAge = Event->ParentalRating();
-                                          if (xtAge < 19 && ((dvbAge > 0 && dvbAge > xtAge) || dvbAge == 0))
-                                             Event->SetParentalRating(xtAge);
                                        }
-                                    }
-                                    break;
-                  case DESC_SRAT:   if (evaluateFlags(USE_FLAGS(STAR_RATING), isMovie, isSeries)) {
-                                       if (starRating.Size()) {
-                                          desc.Append(*cString::sprintf("%s%s: ", nonEmpty ? "\n" : "", tr("star rating")));
-                                          nonEmpty = true;
-                                          for (int i = 0; i < starRating.Size(); i++) {
-                                             cString before, middle, after;
-                                             strsplit(starRating.At(i), '~', before, middle, after);
-                                             desc.Append(*cString::sprintf("%s%s", i > 0 ? ", " : "", *after));
+                                       else if(!strcasecmp(*before, "actor")) {
+                                          if (Flags & CREDITS_ACTORS) {
+                                             if (!isActor) {
+                                                desc.Append(*cString::sprintf("%s%s: ", nonEmpty ? "\n" : "", tr("actor")));
+                                             }
+                                             if (parts == 3)
+                                                desc.Append(*cString::sprintf("%s%s (%s)", isActor ? mline : "", *middle, *after));
+                                             else
+                                                desc.Append(*cString::sprintf("%s%s", isActor ? mline : "", *after));
+                                             isActor = true;
+                                             nonEmpty = true;
+                                          }
+                                       }
+                                       else {
+                                          if (Flags & CREDITS_OTHERS) {
+                                             desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr(*before), *after));
+                                             isActor = false;
+                                             nonEmpty = true;
                                           }
                                        }
                                     }
-                                    break;
-                  case DESC_REVW:   if (evaluateFlags(USE_FLAGS(REVIEW), isMovie, isSeries)) {
-                                       if (review.Size()) {
-                                          desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("review"), review.ToString("\n")));
+                                 }
+                                 break;
+               case DESC_COYR:   if (evaluateFlags(USE_FLAGS(COUNTRYYEAR), isMovie, isSeries)) {
+                                    if (!isempty(*country)) {
+                                       desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("country"), *country));
+                                       nonEmpty = true;
+                                    }
+                                    if (year) {
+                                       desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? (!isempty(*country)?", " : "\n") : "", tr("year"), year));
+                                       nonEmpty = true;
+                                    }
+                                 }
+                                 break;
+               case DESC_ORGT:   if (evaluateFlags(USE_FLAGS(ORIGTITLE), isMovie, isSeries)) {
+                                    if (!isempty(*origTitle)) {
+                                       desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("original title"), *origTitle));
+                                       nonEmpty = true;
+                                    }
+                                 }
+                                 break;
+               case DESC_CATG:   if (evaluateFlags(USE_FLAGS(CATEGORIES), isMovie, isSeries)) {
+                                    if (category.Size()) {
+                                       desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("category"), category.ToString(", ")));
+                                       nonEmpty = true;
+                                    }
+                                 }
+                                 break;
+               case DESC_SEAS:   if (evaluateFlags(USE_FLAGS(SEASON_EPISODE), isMovie, isSeries)) {
+                                    bool seasonLine = false;
+                                    if (season) {
+                                       desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? "\n" : "", tr("season"), season));
+                                       //desc.Append(*cString::sprintf("%s: %d\n", tr("season"), season));
+                                       nonEmpty = true;
+                                       seasonLine = (Flags & USE_SEASON_EPISODE_MULTILINE) == 0;
+                                       xmlAux.Append(cString::sprintf("<season>%d</season>", season));
+                                    }
+
+                                    if (episode) {
+                                       desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? (seasonLine?", " : "\n") : "", tr("episode"), episode));
+                                       //desc.Append(*cString::sprintf("%s: %d\n", tr("episode"), episode));
+                                       nonEmpty = true;
+                                       //seasonLine = true;
+                                       seasonLine = (Flags & USE_SEASON_EPISODE_MULTILINE) == 0;
+                                       xmlAux.Append(cString::sprintf("<episode>%d</episode>", episode));
+                                    }
+
+                                    if (episodeOverall) {
+                                       desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? (seasonLine?", " : "\n") : "", tr("overall episode"), episodeOverall));
+                                       //desc.Append(*cString::sprintf("%s: %d\n", tr("overall episode"), episodeOverall));
+                                       nonEmpty = true;
+                                       xmlAux.Append(cString::sprintf("<episodeOverall>%d</episodeOverall>", episodeOverall));
+                                    }
+                                 }
+                                 break;
+               case DESC_PRAT:   if (evaluateFlags(USE_FLAGS(PARENTAL_RATING), isMovie, isSeries)) {
+                                    if (parentalRating.Size()) {
+                                       bool ratingText = (Flags & PARENTAL_RATING_TEXT) == PARENTAL_RATING_TEXT;
+                                       if (ratingText)
+                                       {
+                                          desc.Append(*cString::sprintf("%s%s: ", nonEmpty ? "\n" : "", tr("parental rating")));
                                           nonEmpty = true;
                                        }
+                                       int xtAge = 19;
+                                       for (int i = 0; i < parentalRating.Size(); i++) {
+                                          cString before, middle, after;
+                                          strsplit(parentalRating.At(i), '~', before, middle, after);
+                                          if (ratingText)
+                                             desc.Append(*cString::sprintf("%s%s: %s", i > 0 ? ", " : "", *before, *after));
+
+                                          int pr = atoi(*after);
+                                          if (pr > 0 && pr < xtAge) xtAge = pr;
+                                       }
+                                       int dvbAge = Event->ParentalRating();
+                                       if (xtAge < 19 && ((dvbAge > 0 && dvbAge > xtAge) || dvbAge == 0))
+                                          Event->SetParentalRating(xtAge);
                                     }
-                                    break;
-               }
+                                 }
+                                 break;
+               case DESC_SRAT:   if (evaluateFlags(USE_FLAGS(STAR_RATING), isMovie, isSeries)) {
+                                    if (starRating.Size()) {
+                                       desc.Append(*cString::sprintf("%s%s: ", nonEmpty ? "\n" : "", tr("star rating")));
+                                       nonEmpty = true;
+                                       for (int i = 0; i < starRating.Size(); i++) {
+                                          cString before, middle, after;
+                                          strsplit(starRating.At(i), '~', before, middle, after);
+                                          desc.Append(*cString::sprintf("%s%s", i > 0 ? ", " : "", *after));
+                                       }
+                                    }
+                                 }
+                                 break;
+               case DESC_REVW:   if (evaluateFlags(USE_FLAGS(REVIEW), isMovie, isSeries)) {
+                                    if (review.Size()) {
+                                       desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("review"), review.ToString("\n")));
+                                       nonEmpty = true;
+                                    }
+                                 }
+                                 break;
             }
-            if (nonEmpty) {
-               Event->SetDescription(desc);
-               modified = true;
-            }
-         } // end of USE_IN_DESC
+         }
+         if (nonEmpty)
+            Event->SetDescription(*desc);
 
          // write back Aux
          if (!isempty(*xmlAux)) {
@@ -544,7 +533,7 @@ bool cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
       SetEventID(Event->EventID());
       LinkPictures();
    }
-   return modified;
+   return;
 }
 
 #define MAXSTARTTIMEDELTA (16*60)
@@ -688,8 +677,8 @@ int cXMLTVEvent::CompareEvent(cEvent *DvbEvent, int matchOffset)
       if ((starttimeDelta < MAXSTARTTIMEDELTA) && (wordsDVBmatch >= min(wordsDVB, 3)) && ((wordsDVB*8/10) <= wordsDVBmatch))
       {
          match = matchOffset | 11;
-         tsyslog(" - CmpEvents10: XinV %02X %d X:%2d-%2d E:%s X:%s E:%s~%s X:%s~%s", matchOffset, starttimeDelta, wordsDVB, wordsDVBmatch, *TimeToString(DvbEvent->StartTime()), *TimeToString(starttime),
-                 DvbEvent->Title(), DvbEvent->ShortText(), *title, *shortText);
+         //tsyslog(" - CmpEvents10: XinV %02X %d X:%2d-%2d E:%s X:%s E:%s~%s X:%s~%s", matchOffset, starttimeDelta, wordsDVB, wordsDVBmatch, *TimeToString(DvbEvent->StartTime()), *TimeToString(starttime),
+         //        DvbEvent->Title(), DvbEvent->ShortText(), *title, *shortText);
       }
 
       if (!match)
@@ -711,8 +700,8 @@ int cXMLTVEvent::CompareEvent(cEvent *DvbEvent, int matchOffset)
          if ((starttimeDelta < MAXSTARTTIMEDELTA) && (wordsXMLmatch >= min(wordsXML, 3)) && ((wordsXML*8/10) <= wordsXMLmatch))
          {
             match = matchOffset | 12;
-            tsyslog(" - CmpEvents20: VinX %02X %d X:%2d-%2d E:%s X:%s E:%s~%s X:%s~%s", matchOffset, starttimeDelta, wordsXML, wordsXMLmatch, *TimeToString(DvbEvent->StartTime()), *TimeToString(starttime),
-                 DvbEvent->Title(), DvbEvent->ShortText(), *title, *shortText);
+            //tsyslog(" - CmpEvents20: VinX %02X %d X:%2d-%2d E:%s X:%s E:%s~%s X:%s~%s", matchOffset, starttimeDelta, wordsXML, wordsXMLmatch, *TimeToString(DvbEvent->StartTime()), *TimeToString(starttime),
+            //     DvbEvent->Title(), DvbEvent->ShortText(), *title, *shortText);
          }
       }
    }
@@ -773,7 +762,7 @@ bool cXMLTVEvent::FetchSeasonEpisode()
    int rc = -1;
    cString episodesFile;
    struct stat statbuf;
-   if (!isempty(eventShortText)) {
+   if (!isempty(*eventShortText)) {
       episodesFile = cString::sprintf("%s/%s.episodes", XMLTVConfig.EpisodesDir(), *eventTitle);
       rc = stat(episodesFile, &statbuf);
 #ifdef DBG_EPISODES2
@@ -868,7 +857,7 @@ int strsplit(const char *Source, const char delimiter, cString &Before, cString 
    return 1;
 }
 
-#define nrmTupel(Symbol, Replacement) { "Symbol", strlen("Symbol"), Replacement }
+#define nrmTupel(Symbol, Replacement) { Symbol, strlen(Symbol), Replacement }
 cString StringNormalize(const char *String)
 {
    cString src = String;
@@ -941,7 +930,7 @@ cString StringCleanup(const char *String, bool ExtendedRemove, bool ExtendedRemo
 {
    cString s;
 
-   if (!isempty((const char *)String))
+   if (!isempty(String))
    {
       s = String;
       const char *toBeRemoved = "\n\r";

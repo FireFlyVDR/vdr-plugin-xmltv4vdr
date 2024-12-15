@@ -11,20 +11,6 @@
 #include "extpipe.h"
 #include "debug.h"
 
-cEPGChannel::cEPGChannel(const char *Name, bool InUse)
-{
-   name = Name;
-   inUse = InUse;
-}
-
-cEPGChannel::~cEPGChannel() {}
-
-int cEPGChannel::Compare(const cListObject &ListObject) const
-{
-   cEPGChannel *epgchannel = (cEPGChannel *) &ListObject;
-   return strcmp(*name, epgchannel->Name());
-}
-
 // -------------------------------------------------------------
 class cEPGSearch_Client
 {
@@ -72,20 +58,23 @@ cEPGSource::cEPGSource(const char *SourceName)
 
 cEPGSource::~cEPGSource() { }
 
-time_t cEPGSource::NextRunTime(time_t Now)
+time_t cEPGSource::NextRunTime(time_t CheckTime)
 {
    time_t t = 0;
    if (enabled)
    {
-      if (!Now) // round to minutes
-         Now = (time(NULL) / 60) * 60;
+      time_t checkTime = CheckTime;
+      if (!checkTime) {
+         checkTime = time(NULL);
+         checkTime -= checkTime % 60;
+      }
 
-      t = cTimer::SetTime(Now, cTimer::TimeToInt(exec_time));
+      t = cTimer::SetTime(checkTime, cTimer::TimeToInt(exec_time));
 
       while ((exec_days & (1 << cTimer::GetWDay(t))) == 0)
          t = cTimer::IncDay(t, 1);
 
-      if (t < Now)
+      if (t < checkTime)
          t = cTimer::IncDay(t, 1);
    }
    return t;
@@ -93,10 +82,10 @@ time_t cEPGSource::NextRunTime(time_t Now)
 
 bool cEPGSource::ExecuteNow(time_t time)
 {
-   if (enabled && !isempty(XMLTVConfig.EPGMappings()->GetActiveEPGChannels(sourceName))) {
+   if (enabled) {
       time_t nextRunTime = NextRunTime(time);
-      if (nextRunTime > 0 && time == nextRunTime) 
-         return true;
+      if (nextRunTime > 0 && time == nextRunTime)
+         return (XMLTVConfig.EPGChannels()->HasActiveEPGChannels(sourceName));
    }
    return false;
 }
@@ -182,11 +171,8 @@ bool cEPGSource::ReadConfig(void)
             char *p = strchr(line, ';');
             if (p) *p = 0;
             if (!isempty(line)) {
-               cEPGChannel *epgchannel = new cEPGChannel(line, false);
-               if (epgchannel) {
-                  epgChannels.Add(epgchannel);
-                  lineNo++;
-               }
+               epgChannels.Append(strdup(line));
+               lineNo++;
             }
          }
       }
@@ -257,19 +243,20 @@ bool cEPGSource::Execute(void)
    size_t errBufferSize = 0;
 #define MAX_TRIES 3
 
-   cString cmd = cString::sprintf("%s %i '%s' %i ", *sourceName, daysInAdvance, isempty(pin) ? "" : *pin, usePics);
+   cString cmd = cString::sprintf("%s %i '%s' %i ", *sourceName, daysInAdvance, isempty(*pin) ? "" : *pin, usePics);
 
-   cString epgChannels = XMLTVConfig.EPGMappings()->GetActiveEPGChannels(sourceName);
-
+   cString epgChannels = XMLTVConfig.EPGChannels()->GetActiveEPGChannels(sourceName);
+   tsyslog("Execute: %s", *epgChannels);
    if (isempty(*epgChannels))
    {
       esyslogs(this,"no channels, please configure source");
       return 0;
    }
 
-   cmd.Append(epgChannels);
+   cmd.Append(*epgChannels);
+   if (!usePipe) cmd.Append(" >&2"); // redirect stdout for file plugins to stderr
 
-   isyslogs(this,"%s", *cString::sprintf("%s %i '%s' %i %s", *sourceName, daysInAdvance, isempty(pin) ? "" : "X@@@", usePics, *epgChannels));
+   isyslogs(this,"%s", *cString::sprintf("%s %i '%s' %i %s", *sourceName, daysInAdvance, isempty(*pin) ? "" : "X@@@", usePics, *epgChannels));
 
    int tries = 0;
    int rc = -1;
@@ -299,7 +286,7 @@ bool cEPGSource::Execute(void)
          int l = 0;
          while (l < 300) {
             cCondWait::SleepMs(200);
-            if (!XMLTVConfig.EPGSources()->ImportIsRunning()) {
+            if (!XMLTVConfig.EPGSources()->Active()) {
                isyslogs(this, "request to stop from vdr");
                return 129;
             }
@@ -317,7 +304,7 @@ bool cEPGSource::Execute(void)
          {
             if (strcmp(lastLine, line))
             {
-               esyslogs(this," (script) %s", line);
+               tsyslogs(this, line);
                lastLine = line;
             }
             line = strtok_r(NULL, "\n", &saveptr);
@@ -333,7 +320,7 @@ bool cEPGSource::Execute(void)
       isyslogs(this, "successfully executed after %i %s", tries, tries > 1 ? "try" : "tries");
 
       if ((rc == 0) && (outBuffer)) {
-         rc = ParseXMLTV(outBuffer, outBufferSize, *sourceName);
+         rc = ParseAndImportXMLTV(outBuffer, outBufferSize, *sourceName);
          XMLTVConfig.StoreSourceParameter(this);  // save lastEventStartTime
          XMLTVConfig.Save();
       }
@@ -376,7 +363,7 @@ time_t cEPGSource::XmltvTime2UTC(char *xmltvtime)
 }
 
 
-int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
+int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *SourceName)
 {  // process the buffer with the XMLTV file in memory
    // add episode info
    // import event into DB for all mapped DVB channels
@@ -413,14 +400,10 @@ int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
    if (XMLTVConfig.UseEpisodes()) {
       episodesDB = new cEpisodesDB();
       if (!episodesDB->OpenDBConnection())
-      {
          DELETENULL(episodesDB);
-      }
-      else
-         episodesDB->UpdateDB();
    }
 
-   if (!xmlTVDB->ImportXMLTVEventPrepare(sourceName))
+   if (!xmlTVDB->ImportXMLTVEventPrepare())
    {
       xmlTVDB->CloseDBConnection();
       delete xmlTVDB;
@@ -436,13 +419,14 @@ int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
    xmlChar *lastchannelid = NULL;
    time_t lastStoptime = 0;
    cXMLTVEvent xtEvent;
-   cEPGMapping *mapping = NULL;
+   cEPGChannel *epgChannel = NULL;
 
    // loop over XML enodes
    xmlNodePtr node = rootnode->xmlChildrenNode;
    while (node)
    {
       xtEvent.Clear();
+      xtEvent.SetSourceName(sourceName);
       if (node->type != XML_ELEMENT_NODE)
       {
          node = node->next;
@@ -470,11 +454,13 @@ int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
       {  // new channelid
          if (lastchannelid) xmlFree(lastchannelid);
          lastchannelid = xmlStrdup(channelid);
-         if (mapping)
-            xmlTVDB->DropOutdatedEvents(mapping->ChannelMapList(), sourceName, lastEventStartTime); // Drop all events not in current XML
+         if (epgChannel) {  // drop superseded events of previous channel
+            xmlTVDB->DropOutdatedEvents(epgChannel->ChannelIDList(), lastEventStartTime); // Drop all events not in current XML
+            xmlTVDB->Transaction_End();
+         }
 
-         mapping = XMLTVConfig.EPGMappings()->GetMap((const char *)channelid); // flags needed for ImportXMLTVEvent
-         if (!mapping)
+         epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel((const char *)channelid); // flags needed for ImportXMLTVEvent
+         if (!epgChannel)
          {
             esyslogs(this,"no mapping for channelid %s",channelid);
             lastError = PARSE_NOMAPPING;
@@ -484,7 +470,8 @@ int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
             continue;
          }
          lastStoptime = 0;
-         xmlTVDB->MarkEventsOutdated(mapping->ChannelMapList(), sourceName); // Mark all events of Channel as outdated;
+         xmlTVDB->Transaction_Begin();
+         xmlTVDB->MarkEventsOutdated(epgChannel->ChannelIDList()); // Mark all events of Channel as outdated;
       }
       xmlFree(channelid);
 
@@ -586,8 +573,6 @@ int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
 
       if(episodesDB)
          episodesDB->QueryEpisode(&xtEvent);
-      //else if (!isempty(XMLTVConfig.EpisodesDir()))
-      //   xtEvent.FetchSeasonEpisode();
 
       const xmlError* xmlErr = xmlGetLastError();
       if (xmlErr && xmlErr->code)
@@ -600,7 +585,7 @@ int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
          xtEvent.SetXTEventID(xtEvent.StartTime());
 
       // insert xtEvent in DB for all mapped channels
-      if (xmlTVDB->ImportXMLTVEvent(&xtEvent, mapping->ChannelMapList(), sourceName))
+      if (xmlTVDB->ImportXMLTVEvent(&xtEvent, epgChannel->ChannelIDList()))
       {  // successfully imported
          imported++;
          if (lastEventStartTime < starttime)
@@ -615,24 +600,28 @@ int cEPGSource::ParseXMLTV(char *buffer, int bufsize, const char *SourceName)
       }
 
       node = node->next;
-      if (!XMLTVConfig.EPGSources()->ImportIsRunning())
+      if (!XMLTVConfig.EPGSources()->Active())
       {
          isyslogs(this, "VDR requested to stop");
          break;
       }
    } // end of node loop
 
-   if(episodesDB)
+   if(episodesDB) {
       episodesDB->CloseDBConnection();
+      delete episodesDB;
+   }
 
-   if (mapping)
-      xmlTVDB->DropOutdatedEvents(mapping->ChannelMapList(), sourceName, lastEventStartTime); // Drop all events not in current XML
+   if (epgChannel) {
+      xmlTVDB->DropOutdatedEvents(epgChannel->ChannelIDList(), lastEventStartTime); // Drop all events not in current XML
+      xmlTVDB->Transaction_End();
+   }
 
    xmlTVDB->ImportXMLTVEventFinalize();
    xmlTVDB->Analyze();
    xmlTVDB->CloseDBConnection();
 
-   xmlTVDB->DeletePictures();
+   xmlTVDB->DeleteOrphanedPictures();
    delete xmlTVDB;
 
    isyslogs(this,"xmltv buffer parsing skipped %i faulty xmltv events, failed %d, outdated %d", faulty, failed, outdated);
@@ -843,7 +832,7 @@ bool cEPGSource::FillXTEventFromXmlNode(cXMLTVEvent *xtEvent, xmlNodePtr enode)
                      //             one or two (or even three?) numbers may be omitted, e.g. '0.5.'
                      //             means episode 6 in season 1
                      cString xmltv_ns = (const char *)content;
-                     if (!isempty(xmltv_ns)) {
+                     if (!isempty(*xmltv_ns)) {
                         xmltv_ns = (const char *)compactspace((char *)*xmltv_ns);
                         if (strlen(*xmltv_ns) > 1) {
                            cString before, middle, after;
@@ -921,14 +910,9 @@ bool cEPGSource::FillXTEventFromXmlNode(cXMLTVEvent *xtEvent, xmlNodePtr enode)
 }
 
 
-bool cEPGSource::ProvidesChannel(const char *EPGchannel)
+bool cEPGSource::ProvidesChannel(const char *EPGchannelName)
 {
-   for (cEPGChannel *channel = epgChannels.First(); channel; channel = epgChannels.Next(channel))
-   {
-      if (!strcmp(EPGchannel, channel->Name()))
-         return true;
-   }
-   return false;
+   return(epgChannels.Find(EPGchannelName) > -1);
 }
 
 
@@ -944,8 +928,9 @@ void cEPGSource::Add2Log(struct tm *Tm, const char Prefix, const char *Line)
 // -------------------------------------------------------------
 cEPGSources::cEPGSources() : cThread("xmltv4vdr Importer", true)
 {
-   downloadForced = false;
-   downloadSource = NULL;
+   manualStart = false;
+   epgImportSource = NULL;
+   isImporting = false;
 }
 
 cEPGSources::~cEPGSources()
@@ -987,7 +972,6 @@ time_t cEPGSources::NextRunTime()
    for (cEPGSource *source = First(); source; source = Next(source))
    {
       time_t srcNext = source->NextRunTime();
-      tsyslog("cEPGSources::NextRunTime: %d %s %s", srcNext, ctime(&srcNext), source->SourceName());
       if (srcNext > 0 && (nextRunTime == 0 || srcNext < nextRunTime))
       {
          nextRunTime = srcNext;
@@ -1031,59 +1015,138 @@ void cEPGSources::ReadAllConfigs(void)
 #endif
 }
 
-void cEPGSources::ResetEventStarttimes()
+void cEPGSources::ResetLastEventStarttimes()
 {
    for (cEPGSource *source = First(); source; source = Next(source))
       source->SetLastEventStarttime(-1);
 }
 
-bool cEPGSources::StartImport(bool forced, cEPGSource *Source)
+void cEPGSources::StartImport(cEPGSource *EpgSource)
 {
-   bool started = false;
-   if (!cThread::Active() && !XMLTVConfig.HouseKeepingActive()) {
-      downloadForced = forced;
-      downloadSource = Source;
-      started = cThread::Start();
-   }
-   return started;
+   cMutexLock mtxImportLock(&mtxImport);
+   epgImportSource = EpgSource;
+   manualStart = true;
+   cwDelay.Signal();
+   cvBlock.Broadcast();
 }
 
+void cEPGSources::StopThread()
+{
+   if (Running()) {
+      Cancel(-1);
+      cwDelay.Signal();
+      cvBlock.Broadcast();
+      Cancel(10);
+   }
+}
 
 void cEPGSources::Action()
 {  /// fetch external EPG info
-   cEPGSearch_Client epgsearch;
-   if (!epgsearch.EnableSearchTimers(false))
-      esyslog("failed to disable epgsearch searchtimers");
+   cTimeMs timer;
+   uint64_t delay = -1;
 
-   cVector<cEPGSource *> sourceList;
-   time_t starttime = (time(NULL)/60)*60;
-   if (downloadSource && downloadSource->Enabled()) {
-      if (downloadSource->Execute())
-         sourceList.Append(downloadSource);
-   }
-   else {
-      for (cEPGSource *source = First(); source; source = Next(source))
-      {
-         if (source->Enabled() && (downloadForced || source->ExecuteNow(starttime))) {
-            if (source->Execute())
-               sourceList.Append(source);
-         }
+   while (Running())
+   {
+      mtxImport.Lock();
+      time_t starttime = time(NULL);
+      starttime -= starttime%60;
+      bool timerStart = false;
+      while (Running() && !(manualStart || (timerStart = ExecuteNow(starttime))))
+      {  // give mtxImport back until condition is met, re-gain lock automatically
+         bool manual = cvBlock.TimedWait(mtxImport, 60000);
+         starttime = time(NULL);
+         starttime -= starttime%60;
       }
-   }
 
-   if (sourceList.Size() > 0) {
-      cXMLTVDB *xmlTVDB = new cXMLTVDB();
-      if (xmlTVDB) {
-         int rc = 0;
-         if (rc == 0) {
+      if (manualStart || timerStart)
+      {
+         isImporting = true;
+         tsyslog("cEPGSources::Action Start: %s", manualStart?"manualStart":"timerStart");
+         cVector<cEPGSource *> sourceList;
+
+         cEPGSearch_Client epgsearch;
+         if (!epgsearch.EnableSearchTimers(false))
+            esyslog("failed to disable epgsearch searchtimers");
+
+         // updated Episodes DB
+         if (XMLTVConfig.UseEpisodes()) {
+            cEpisodesDB *episodesDB = new cEpisodesDB();
+            if (episodesDB) {
+               if (episodesDB->OpenDBConnection()) {
+                  episodesDB->UpdateDB();
+                  episodesDB->CloseDBConnection();
+               }
+               delete episodesDB;
+            }
+         }
+
+         // let each EPGsource fetch its content
+         if (manualStart && epgImportSource) {
+            if (epgImportSource->Enabled() && epgImportSource->Execute())
+               sourceList.Append(epgImportSource);
+         }
+         else {
+            for (cEPGSource *source = First(); source; source = Next(source)) {
+               if (source->Enabled() && (manualStart || source->ExecuteNow(starttime))) {
+                  if (source->Execute())
+                     sourceList.Append(source);
+               }
+            }
+         }
+
+         manualStart = false;
+         epgImportSource = NULL;
+
+         bool success = true;
+         if (sourceList.Size() > 0)
+         {  // append external events if configured
+            cXMLTVDB *xmlTVDB = new cXMLTVDB();
+            if (xmlTVDB && xmlTVDB->OpenDBConnection())
+            {
+               int totalSchedules = 0, totalEvents = 0;
+               for (int s = 0; s < sourceList.Size(); s++)
+               {
+                  cEPGSource *source = sourceList.At(s);
+                  cStringList *epgChannelList = source->EpgChannelList();
+                  for (int i = 0; i < epgChannelList->Size(); i++) {
+                     const char *epgChannelName = epgChannelList->At(i);
+                     if (cEPGChannel *epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel(epgChannelName)) { // has epgChannel
+                        if (epgChannel && epgChannel->EPGSource() && epgChannel->EPGSource()->SourceName() && !strcmp(epgChannel->EPGSource()->SourceName(), source->SourceName())) {
+                           if ((epgChannel->Flags() & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS >= APPEND_EXT_EVENTS) {
+                              for (int c = 0; c < epgChannel->ChannelIDList()->Size(); c++) {
+                                 tChannelID channelID = epgChannel->ChannelIDList()->At(c)->GetChannelID();
+                                 success =  success && xmlTVDB->AppendEvents(channelID, epgChannel->Flags(), &totalSchedules, &totalEvents);
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+               xmlTVDB->CloseDBConnection();
+               delete xmlTVDB;
+               isyslog("Appended %d events to %d channels", totalEvents, totalSchedules);
+            }
+         } // end of Append
+
+         if (success) {
             for (int i = 0; i < sourceList.Size(); i++) {
                sourceList[i]->SetLastSuccessfulRun(starttime);
             }
          }
-         delete xmlTVDB;
+
+         if (!epgsearch.EnableSearchTimers(true))
+            esyslog("failed to enable epgsearch searchtimers");
+
+         isImporting = false;
+         mtxImport.Unlock();
+
+         tsyslog("cEPGSources::Action End");
+      }
+      //tsyslog("cEPGSources::Action LoopEnd");
+      delay = time(NULL) - starttime;
+      if (delay > 0 && delay < 60 && Running())
+      {  // avoid multiple timer calls
+         cwDelay.Wait(delay*1000);
       }
    }
-
-   if (!epgsearch.EnableSearchTimers(true))
-      esyslog("failed to enable epgsearch searchtimers");
 }

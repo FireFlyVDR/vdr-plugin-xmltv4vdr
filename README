@@ -14,15 +14,17 @@ Description:
 ------------
 This plugin for the Linux Video Disk Recorder VDR imports EPG data from
 external sources in XMLTV format and enhances the DVB EPG with that including
-links to pictures. The file(s) in XMLTV format must be provided by one (or
-more) additional grabber which are not part of this plugin.
+links to pictures. Beginning with version 0.4.5 it is also possible to add
+EPG events to the DVB EPG (if the external EPG exceeds the DVB EPG) or to use
+only the external EPG.
+The file(s) in XMLTV format must be provided by one (or more) additional
+grabber which are not part of this plugin.
 The elements to be imported can be configured selectivly by channel and type of
 event (movies, series or all).
-Additionally the episode info from www.eplists.de is optionally
-integrated.
+Additionally the episode info from www.eplists.de is optionally integrated.
 
-Please be aware that depending on the EPG data quality not in every situation
-a match for a DVB event can be found in the external events.
+Please be aware that depending on the data quality of the EPG not in every
+situation a match for a DVB event can be found in the external events.
 
 Requirements:
 -------------
@@ -42,29 +44,33 @@ Installation and Configuration:
   - for each provided channel of the EPG source you want to import into VDR enter the sub-menu and:
       1. choose a source
       2. select all VDR channels to map to
-      3. select the flags which info should be available to VDR
-      for convenience the flags can be copied with the blue button (or deleted with the
-      yellow button) to all other configured source channels
+      3. select the usage of external EPG: enrich DVB, append to DVB or use only external EPG
+      4. select the flags which info should be available to VDR
+         For convenience the flags can be copied with the blue button (or deleted
+         with the yellow button) to all other configured source channels
 
 
 Episode Lists
 -------------
-The plugin supports optionally the episodes info of www.eplists.de.
+The plugin supports optionally integrating the episodes info from www.eplists.de.
 It uses a local SQLite DB for faster queries and the database is updated before
-each EPG update from external sources. The update con be configured either to
+fetching the EPG info from external sources. The update con be configured either to
 fetch the episodes info directly from the server (internet connection required)
 or it reads them from a local directory with episode files.
-UTF-8 format is mendatory for the episode files.
+Please be aware that the UTF-8 format is mandatory for the episode files.
 
-To enable any of the update methods ....
+To enable the usage of episodes info provide a database filename with --episodesdb
+and configure either of the two fetch methods:
+- For fetching the episodes info directly via internet configure the episode server
+(e.g. --episodesserver=www.eplists.de, optionally the Port with --episodesport=PORT)
+- If no episode server is provided it defaults to use an episode folder at
+"<Plugin-ResourceDir>/episodes". To use a different location use the
+parameter --episodes=DIR.
 
-To use the update directly via internet configure the
 To use a local directory for the updates download the files regularly
 via cron, e.g.:
    05 01 * * * vdr /usr/bin/svdrpsend-ng.pl -d www.eplists.de -p 2006 -c -o /srv/vdr/episodes TGET newer than $(($(date '+\%s')-$(stat -c %Y \"$(ls -t1 /srv/vdr/episodes/*|head -n 1)\")+3600)) seconds >/var/log/eplists 2>&1
 and define in xmltv4xml.conf the location of the local episode DB (e.g. --episodesdb=/srv/vdr/episodes).
-iIf the path of the episode diretory should be different from the default
-<Plugin-ResourceDir>/episodes you can define it with the --episodes parameter.
 
 The series and episode info is also written in XML format into the AUX field of the events. It
 can be read by any other plugin. or e.g. svdrpsend LSTE <channel No> at <timestamp> :
@@ -75,7 +81,7 @@ can be read by any other plugin. or e.g. svdrpsend LSTE <channel No> at <timesta
 
 EPG images
 ----------
-Dowloaded EPG images are stored in <EPGsources-Dir>/<epg-source>-img. If a
+Dowloaded EPG images are expected in <EPGsources-Dir>/<epg-source>-img. If a
 matching event is found they are soft-linked to the cache dir (default:
 <Plugin-CacheDir>/epgimages) in the format <channeld-ID>-<Event-ID>_<Number>.jpg
 where number begins with 0. Skin plugins can acces them with this schema to show
@@ -93,31 +99,31 @@ Config files
 ---------------------------------
 contains all parameters the plugin supports:
 [xmltv4vdr]
-#  -d FILE,  --epgdatabase=FILE   write the EPG database into the given FILE
-#                                 default: <Plugin-CacheDir>/xmltv4vdr_EPG.db
+#  -d FILE,  --epgdatabase=FILE     write the EPG database into the given FILE
+#                                   default: <Plugin-CacheDir>/xmltv4vdr_EPG.db
 
-#  -i DIR,   --images=DIR         location where links to EPG images are stored
-#                                 default: <Plugin-CacheDir>/epgimages
+#  -i DIR,   --images=DIR           location where links to EPG images are stored
+#                                   default: <Plugin-CacheDir>/epgimages
 
-#  -s DIR,   --epgsources=DIR     location where EPG Sources are stored
-#                                 default: /var/lib/epgsources
+#  -s DIR,   --epgsources=DIR       location where EPG Sources are stored
+#                                   default: /var/lib/epgsources
 
-#  -e DIR,   --episodes=DIR       location of episode files (UTF-8 format only!)
-#                                 default is <Plugin-ResourceDir>/episodes
+#  -E DIR,   --episodesdb=DIR       use the given filename for the SQLite Episodes DB
+#                                   ** mandatory for using episodes information **
+#                                   suggested: <Plugin-CacheDir>/xmltv4vdr_episodes.db
+#                                   default: none
 
-#  -E DIR,   --episodesdb=DIR     read the Episodes DB from the given SQLite FILE
-#                                 ** mandatory for using episodes information **
-#                                 (omit this parameter to disable episodes information)
-#                                 default: none
+#  -e DIR,   --episodes=DIR         location of episode files (UTF-8 format only!)
+#                                   default is <Plugin-ResourceDir>/episodes
 
-#  -h DIR,   --episodesserver=HOST  servername of episdes server, e.g. www.eplists.de
-#                                 default: none
+#  -h DIR,   --episodesserver=HOST  servername of episodes server, e.g. www.eplists.de
+#                                   default: none
 
-#  -p DIR,   --episodesport=PORT  port of episodes server
-#                                 default: 2006
+#  -p DIR,   --episodesport=PORT    port of episodes server
+#                                   default: 2006
 
-#  -l FILE,  --logfile=FILE       write trace logs into the given FILE
-#                                 default: no trace log written
+#  -l FILE,  --logfile=FILE         write trace logs into the given FILE
+#                                   default: no trace log written
 
 /etc/vdr/plugins/xmltv4vdr/xmltv4vdr.conf
 -----------------------------------------
@@ -128,7 +134,7 @@ It can be modified with the plugins setup menu and is not intended to be edited.
 ---------------------
 for each EPG source:
    - a folder for EPG images (if any) named <epg-source>-img
-   - for xmltv files provided via file interface the xmltv file named <epg-source>.xmltv
+   - for xmltv info provided via file interface the xmltv file named <epg-source>.xmltv
    - a configuation file named <epg-source> with the following structure:
      line 1:  mode;00:00;P;I
          where mode is file or pipe

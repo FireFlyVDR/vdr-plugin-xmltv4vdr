@@ -14,6 +14,7 @@
 //#define DBG_EPISODES2 1
 //#define DBG_DROPEVENTS  1
 //#define DBG_DROPEVENTS2 1
+//#define DBG_APPENDEVENTS  1
 //#define DEBUG
 
 #include "config.h"

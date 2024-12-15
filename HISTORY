@@ -11,3 +11,13 @@ VDR Plugin 'xmltv4vdr' Revision History
 
 2024-10-19: Version 0.4.4-Beta
 - implemented fetching episode lists directly via internet
+
+2024-12-15: Version 0.4.5-Beta
+- internal refactoring and optimization of channel mapping and database
+- added option to append external events to DVB events
+- added option to use only external events
+- code cleanup
+- lots of bugfixes and optimizations
+- replaced MainThreadHook() with own thread
+NOTE: This version introduces a new database scheme and therefore an
+      import of external events is required after the update

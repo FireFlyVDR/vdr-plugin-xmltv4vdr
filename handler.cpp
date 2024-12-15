@@ -6,7 +6,6 @@
  */
 
 #include "handler.h"
-#include "debug.h"
 
 cEpgHandlerXMLTV::cEpgHandlerXMLTV(void)
 {  ///< Constructs a new EPG handler and adds it to the list of EPG handlers.
@@ -19,11 +18,11 @@ cEpgHandlerXMLTV::cEpgHandlerXMLTV(void)
    ///< EPG handlers will be deleted automatically at the end of the program.
 
    xmlTVDB = new cXMLTVDB();
-   mapping = NULL;
+   epgChannel = NULL;
    channelID = tChannelID::InvalidID;
    channelName = NULL;
    flags = USE_NOTHING;
-   lastEventStarttime = -1;
+   sourceLastEventStarttime = -1;
 }
 
 cEpgHandlerXMLTV::~cEpgHandlerXMLTV(void)
@@ -58,37 +57,34 @@ bool cEpgHandlerXMLTV::BeginSegmentTransfer(const cChannel *Channel, bool Dummy)
    ///< Dummy is for backward compatibility and may be removed in a future version.
 
    bool success = false;
-   channelID = Channel->GetChannelID();
-   channelName = Channel->Name();
 
    if (XMLTVConfig.DBinitialized()) {
       if (!XMLTVConfig.HouseKeepingActive() && !XMLTVConfig.ImportActive())   // not during housekeeping or import from external sources
       {
-         cEPGMapping *map = XMLTVConfig.EPGMappings()->GetMap(Channel->GetChannelID());
-         if (map && map->EPGSource())     // not if no mapping for this channel exists
-         {
-            mapping = map;
-            flags = mapping->Flags();
-            if (mapping->EPGSource()) {
-               lastEventStarttime = mapping->EPGSource()->LastEventStarttime();
-               lingerTime = time(NULL) - Setup.EPGLinger * 60;
-            }
+         cEPGChannel *epgCh = XMLTVConfig.EPGChannels()->GetEpgChannel(Channel->GetChannelID());
+         if (epgCh && epgCh->EPGSource())     // not if no epgChannel for this channel exists
+         {  // has epgChannel, channelID and EPGSource
+            channelID = Channel->GetChannelID();
+            channelName = Channel->Name();
+            epgChannel = epgCh;
+            flags = epgChannel->Flags();
+            sourceLastEventStarttime = epgChannel->EPGSource()->LastEventStarttime();
+            epgLingerTime = time(NULL) - Setup.EPGLinger * 60;
 #ifdef DBG_EPGHANDLER2
-            tsyslog("BEGIN_SEGMENT %s(%d) (%s) %s (%s)", __FILE__, __LINE__, *Channel->GetChannelID().ToString(), Channel->Name(), XMLTVConfig.EPGMappings()->HandledExternally(Channel->GetChannelID())?"ext":"int");
+            tsyslog("BEGIN_SEGMENT %s(%d) (%s) %s (%s)", __FILE__, __LINE__, *Channel->GetChannelID().ToString(), Channel->Name(), XMLTVConfig.EPGChannels()->HandledExternally(Channel->GetChannelID())?"ext":"int");
 #endif
             success = xmlTVDB->OpenDBConnection();
-            if (success)
-            {
+            if (success) {
 #ifdef DBG_EPGHANDLER2
                segmentStarttime = GetTimeMS();
 #endif
-               success = xmlTVDB->UpdateEventPrepare(*Channel->GetChannelID().ToString(), mapping->EPGSource()->SourceName());
+               success = xmlTVDB->UpdateEventPrepare(*Channel->GetChannelID().ToString());
                if (!success) {
                   xmlTVDB->CloseDBConnection();
                }
             }
          }
-         else { // no mapping for this channel, let others handle it
+         else { // no epgChannel for this channel, let others handle it
             success = true;
          }
 #ifdef DBG_EPGHANDLER2
@@ -105,11 +101,11 @@ bool cEpgHandlerXMLTV::EndSegmentTransfer(bool Modified, bool Dummy)
    /// Modified is true if any modifications to events have been done
    ///< Dummy is for backward compatibility and may be removed in a future version.
 
-   if (mapping) {
+   if (epgChannel) {
       xmlTVDB->UpdateEventFinalize();
       xmlTVDB->CloseDBConnection();
-      mapping = NULL;
-      lastEventStarttime = -1;
+      epgChannel = NULL;
+      sourceLastEventStarttime = -1;
 #ifdef DBG_EPGHANDLER2
       double segmentEndtime = GetTimeMS();
       tsyslog("SEGMENT handling time  %4.3f ms %s 0x%06X %s", segmentEndtime-segmentStarttime,
@@ -126,17 +122,38 @@ bool cEpgHandlerXMLTV::EndSegmentTransfer(bool Modified, bool Dummy)
    return false;
 }
 
+bool cEpgHandlerXMLTV::HandledExternally(const cChannel *Channel)
+{  ///< If any EPG handler returns true in this function, it is assumed that
+   ///< the EPG for the given Channel is handled completely from some external
+   ///< source. Incoming EIT data is processed as usual, but any new EPG event
+   ///< will not be added to the respective schedule. It's up to the EPG
+   ///< handler to take care of this.
+
+   cEPGChannel *epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel(Channel->GetChannelID());
+   return (epgChannel && ((epgChannel->Flags() & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS) == ONLY_EXT_EVENTS);
+}
+
+
+bool cEpgHandlerXMLTV::IsUpdate(tEventID EventID, time_t StartTime, uchar TableID, uchar Version)
+{  ///< VDR can't perform the update check (version, tid) for externally handled events,
+   ///< therefore the EPG handlers have to take care of this. Otherwise the parsing of
+   ///< non-updates will waste a lot of resources.
+   ///< only called if handledExternally is set
+
+   return false;
+}
+
 bool cEpgHandlerXMLTV::HandleEvent(cEvent* Event)
 {  ///< After all modifications of the Event have been done, the EPG handler
    ///< can take a final look at it.
    // return true if it was handled, otherwise false to allow other Handlers to handle it
 
    bool handled = false;
-   if (mapping && !(channelID == tChannelID::InvalidID)) {
-      //NOTE do not use (flags & USE_MASK) in this condition, otherwise for new EIT events with empty flags eventid will not be written into DB and no pictures will be linked
-      if (Event && (Event->StartTime() <= lastEventStarttime) && (Event->EndTime() >= lingerTime))
+   if (epgChannel)
+   {  //NOTE do not use (flags & USE_MASK) in this condition, otherwise for new EIT events with empty flags eventid will not be written into DB and no pictures will be linked
+      if (Event && (Event->StartTime() <= sourceLastEventStarttime) && (Event->EndTime() >= epgLingerTime))
       {  // Event needs to start before last entry of EpgSource and end after current time minus EPGlinger
-         handled = xmlTVDB->UpdateEvent(Event, flags, *channelName, mapping->EPGSource()->SourceName(), lastEventStarttime); // search and update/insert event in DB
+         handled = xmlTVDB->UpdateEvent(Event, flags); // search and update/insert event in DB
       }
    }
 
@@ -148,23 +165,14 @@ bool cEpgHandlerXMLTV::DropOutdated(cSchedule *Schedule, time_t SegmentStart, ti
    ///< drops outdated events (latest TableID and Version are provided, not neccessarily events in the past!).
 
    bool handled = false;
-   if (mapping && !(channelID == tChannelID::InvalidID)) {
+   if (epgChannel)
+   {  // has epgChannel
 #ifdef DBG_EPGHANDLER2
-      tsyslog("DropOutdated Handler1  %s - %s %2X-%2X %s", *DayDateTime(SegmentStart), *DayDateTime(SegmentEnd), TableID, Version, *Schedule->ChannelID().ToString());
+      tsyslog("DropOutdated Handler  %s - %s %2X-%2X %s", *DayDateTime(SegmentStart), *DayDateTime(SegmentEnd), TableID, Version, *Schedule->ChannelID().ToString());
 #endif
-
-      handled = xmlTVDB->DropOutdated(Schedule, SegmentStart, SegmentEnd, TableID, Version);
-   }
-   else
-   {
-#ifdef DBG_EPGHANDLER2
-      cEPGMapping *map = XMLTVConfig.EPGMappings()->GetMap(Schedule->ChannelID());
-      if (map && map->EPGSource())
-      {  // channel has mapping and an EPGSource is defined
-         tsyslog("DropOutdated Handler2  %s - %s %2X-%2X %s", *DayDateTime(SegmentStart), *DayDateTime(SegmentEnd), TableID, Version, *Schedule->ChannelID().ToString());
-      }
-#endif
+      if ((epgChannel->Flags() & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS != NO_EXT_EVENTS)
+         handled = xmlTVDB->DropOutdated(Schedule, SegmentStart, SegmentEnd, TableID, Version);
    }
 
-   return false; // let other handlers also being executed
+   return false; // let other handlers (including VDR) also being executed
 }

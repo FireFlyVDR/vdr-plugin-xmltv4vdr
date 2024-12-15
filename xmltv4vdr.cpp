@@ -14,7 +14,7 @@
 #error THIS PLUGIN REQUIRES AT LEAST VDR 2.4.5
 #endif
 
-static const char *VERSION        = "0.4.4-Beta";
+static const char *VERSION        = "0.4.5-Beta";
 static const char *DESCRIPTION    = trNOOP("Imports EPG data in XMLTV format into VDR");
 
 // -------------------------------------------------------------
@@ -36,11 +36,11 @@ public:
    virtual bool Start(void);
    virtual void Stop(void);
    virtual void Housekeeping(void);
-   virtual void MainThreadHook(void);
+   //virtual void MainThreadHook(void);
    virtual cString Active(void);
    virtual time_t WakeupTime(void);
-   virtual const char *MainMenuEntry(void);
-   virtual cOsdObject *MainMenuAction(void);
+   //virtual const char *MainMenuEntry(void);
+   //virtual cOsdObject *MainMenuAction(void);
    virtual cMenuSetupPage *SetupMenu(void);
    virtual const char **SVDRPHelpPages(void);
    virtual cString SVDRPCommand(const char *Command, const char *Option, int &ReplyCode);
@@ -193,7 +193,6 @@ bool cPluginXmltv4vdr::Initialize(void)
 
 #ifdef DEBUG
 #include <signal.h>
-//#define ABORT { dsyslog("ABORT!"); cBackTrace::BackTrace(); abort(); }
 
 void sig_handler(int sig)
 {
@@ -240,6 +239,9 @@ bool cPluginXmltv4vdr::Start(void)
    // setup housekeeping
    XMLTVConfig.SetHouseKeeping(new cHouseKeeping());
 
+   // start EPG import thread
+   XMLTVConfig.EPGSources()->Start();
+
    // register new EPG handler to VDR
    epghandler = new cEpgHandlerXMLTV();
 
@@ -249,14 +251,14 @@ bool cPluginXmltv4vdr::Start(void)
    if (signal(SIGSEGV, sig_handler) == SIG_ERR)
       isyslog("xmltv4vdr: can't catch SIGSEGV\n");
 #endif
+
    return true;
 }
 
 void cPluginXmltv4vdr::Stop(void)
 {  // Stop any background activities the plugin is performing.
+   XMLTVConfig.EPGSources()->StopThread();
    delete epghandler;
-
-   XMLTVConfig.EPGSources()->StopImport();
    XMLTVConfig.HouseKeeping()->StopHousekeeping();
    if (XMLTVConfig.LogFile()) {
       fclose(XMLTVConfig.LogFile());
@@ -280,21 +282,6 @@ void cPluginXmltv4vdr::Housekeeping(void)
    }
 }
 
-void cPluginXmltv4vdr::MainThreadHook(void)
-{  // Perform actions in the context of the main program thread.
-   // WARNING: Use with great care - see PLUGINS.html!
-   time_t now = time(NULL);
-   if (now >= (last_timerchecktime + 60))  // check epgImporter every minute
-   {
-      time_t timerchecktime = (now/60)*60;
-      if (XMLTVConfig.EPGSources()->ExecuteNow(timerchecktime) || deferred) {
-         deferred = !XMLTVConfig.EPGSources()->StartImport();
-         if (!deferred)
-            last_timerchecktime = timerchecktime;
-      }
-   }
-}
-
 cString cPluginXmltv4vdr::Active(void)
 {  // Return a message string if shutdown should be postponed
    if (XMLTVConfig.ImportActive() || XMLTVConfig.HouseKeepingActive())
@@ -314,16 +301,6 @@ time_t cPluginXmltv4vdr::WakeupTime(void)
       tsyslog("reporting wakeuptime %s", ctime(&nextruntime));
    }
    return nextruntime;
-}
-
-const char *cPluginXmltv4vdr::MainMenuEntry(void)
-{  // Return a main menu entry
-   return NULL;
-}
-
-cOsdObject *cPluginXmltv4vdr::MainMenuAction(void)
-{  // Perform the action when selected from the main VDR menu.
-   return NULL;
 }
 
 cMenuSetupPage *cPluginXmltv4vdr::SetupMenu(void)
@@ -370,14 +347,14 @@ cString cPluginXmltv4vdr::SVDRPCommand(const char *Command, const char *Option, 
          else
          {
             if (isempty(Option)) {
-               XMLTVConfig.EPGSources()->StartImport(true);
+               XMLTVConfig.EPGSources()->StartImport();
                ReplyCode = 250;
                output = "update started\n";
             }
             else {
                cEPGSource *source = XMLTVConfig.EPGSources()->GetSource(compactspace((char *)Option));
                if (source && source->Enabled()) {
-                  XMLTVConfig.EPGSources()->StartImport(true, source);
+                  XMLTVConfig.EPGSources()->StartImport(source);
                   ReplyCode = 250;
                   output = cString::sprintf("update of source '%s' started\n", Option);
                }
@@ -394,7 +371,8 @@ cString cPluginXmltv4vdr::SVDRPCommand(const char *Command, const char *Option, 
    {  // delete outdated entries and pictures
       if (XMLTVConfig.HouseKeeping() && XMLTVConfig.HouseKeeping()->StartHousekeeping(HKT_DELETEEXPIREDEVENTS))
       {
-         last_housekeepingtime = (time(NULL)/60)*60;
+         last_housekeepingtime = time(NULL);
+         last_housekeepingtime -= last_housekeepingtime % 60;
          ReplyCode = 250;
          output = "housekeeping started";
       }

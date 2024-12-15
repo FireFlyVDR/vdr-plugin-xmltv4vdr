@@ -71,7 +71,7 @@ private:
    bool DB_initialized;
    struct descriptionSeq descrSequence;
    cEPGSources *epgSources;
-   cEPGMappings epgMappings;
+   cEPGChannels epgChannels;
    cHouseKeeping *houseKeeping;
    bool wakeup;
    bool fixDuplTitleInShortttext;
@@ -87,7 +87,7 @@ public:
    cConfigLine *Get(const char *Name, const char *Extension, const char *Section);
    void Store(const char *Name, const char *Extension, const char *Value, const char *Section);
    void Store(const char *Name, const char *Value, const char *Section);
-   void StoreMapping(cEPGMapping *Mapping);
+   void StoreEpgChannel(cEPGChannel *EpgChannel);
    void StoreSourceParameter(cEPGSource *Source);
    bool Save(void);
 
@@ -126,9 +126,9 @@ public:
    void SetHouseKeeping(cHouseKeeping *HouseKeeping) { houseKeeping = HouseKeeping; }
    cHouseKeeping *HouseKeeping()           { return houseKeeping; }
    bool HouseKeepingActive(void)           { return houseKeeping != NULL && houseKeeping->Active(); }
-   bool ImportActive(void)                 { return epgSources->Active(); } 
+   bool ImportActive(void)                 { return epgSources != NULL && epgSources->ImportIsRunning(); }
 
-   cEPGMappings *EPGMappings()             { return &epgMappings; }
+   cEPGChannels *EPGChannels()             { return &epgChannels; }
    cEPGSources  *EPGSources()              { return epgSources; }
 
    void SetDescrSequence(const struct descriptionSeq NewSequence) { descrSequence = NewSequence; }
