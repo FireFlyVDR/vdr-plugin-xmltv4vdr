@@ -8,6 +8,7 @@
 #ifndef __source_h
 #define __source_h
 
+#include <atomic>
 #include <libxml/parser.h>
 #include "event.h"
 
@@ -95,7 +96,7 @@ private:
    cCondVar cvBlock;
    cCondWait cwDelay;
    bool manualStart;
-   std::atomic_bool isImporting;
+   std::atomic<bool> isImporting;
    cEPGSource *epgImportSource;
    void RemoveAll();
 public:
