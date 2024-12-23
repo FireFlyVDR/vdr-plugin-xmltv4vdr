@@ -121,7 +121,7 @@ public:
    uint64_t Flags()                         { return flags; }
 
    void SetChannelIDList(cChannelIDList *ChannelIDList);
-   cChannelIDList *ChannelIDList()          { return &channelIDList; }
+   const cChannelIDList &ChannelIDList() const { return channelIDList; }
 
    void SetEpgSource(cEPGSource *EPGSource) { epgSource = EPGSource; }
    cEPGSource *EPGSource()                  { return epgSource; }

@@ -71,7 +71,7 @@ private:
    bool DB_initialized;
    struct descriptionSeq descrSequence;
    cEPGSources *epgSources;
-   cEPGChannels epgChannels;
+   cEPGChannels *epgChannels;
    cHouseKeeping *houseKeeping;
    bool wakeup;
    bool fixDuplTitleInShortttext;
@@ -128,7 +128,7 @@ public:
    bool HouseKeepingActive(void)           { return houseKeeping != NULL && houseKeeping->Active(); }
    bool ImportActive(void)                 { return epgSources != NULL && epgSources->ImportIsRunning(); }
 
-   cEPGChannels *EPGChannels()             { return &epgChannels; }
+   cEPGChannels *EPGChannels()             { return epgChannels; }
    cEPGSources  *EPGSources()              { return epgSources; }
 
    void SetDescrSequence(const struct descriptionSeq NewSequence) { descrSequence = NewSequence; }

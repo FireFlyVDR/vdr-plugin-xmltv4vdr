@@ -226,7 +226,7 @@ void cMenuSetupXmltv4vdr::generateChannelList()
    for (cEPGSource *epgSrc = epgSources->First(); epgSrc; epgSrc = epgSources->Next(epgSrc))  // gehe alle EPGsources durch (warum -1 ? EIT?)
    {
       if (epgSrc && epgSrc->Enabled()) {
-         cStringList *epgChannelList = epgSrc->EpgChannelList();
+         const cStringList *epgChannelList = epgSrc->EpgChannelList();
          for (int i = 0; i < epgChannelList->Size(); i++) {
             const char *epgChannelName = epgChannelList->At(i);
             if (!isempty(epgChannelName) && channelStringList.Find(epgChannelName) == -1 )
@@ -635,12 +635,12 @@ void cMenuSetupMapping::Set(void)
 
    Add(NEWTITLE(tr("EPG source channel mappings")), true);
    lineMap = Current();
-   for (int i = 0; i < tmpEpgChannel->ChannelIDList()->Size(); i++)
+   for (int i = 0; i < tmpEpgChannel->ChannelIDList().Size(); i++)
    {
       LOCK_CHANNELS_READ
       if (Channels)
       {
-         const cChannel *chan = Channels->GetByChannelID(tmpEpgChannel->ChannelIDList()->At(i)->GetChannelID());
+         const cChannel *chan = Channels->GetByChannelID(tmpEpgChannel->ChannelIDList().At(i)->GetChannelID());
          if (chan)
          {
             cString buffer = cString::sprintf("%*i %s", CHNUMWIDTH, chan->Number(), chan->Name());
@@ -863,16 +863,16 @@ bool cMenuSetupMapping_AddChannel::epgMappingExists(tChannelID channelid)
    for (int i = 0; i < XMLTVConfig.EPGChannels()->Count(); i++)
    {
       cEPGChannel *epgChannel = XMLTVConfig.EPGChannels()->Get(i);
-      for (int x = 0; x < epgChannel->ChannelIDList()->Size(); x++)
+      for (int x = 0; x < epgChannel->ChannelIDList().Size(); x++)
       {
-         if (epgChannel->ChannelIDList()->At(x)->GetChannelID() == channelid)
+         if (epgChannel->ChannelIDList().At(x)->GetChannelID() == channelid)
             return true;
       }
    }
 
-   for (int x = 0; x < tmpEpgChannel->ChannelIDList()->Size(); x++)
+   for (int x = 0; x < tmpEpgChannel->ChannelIDList().Size(); x++)
    {
-      if (tmpEpgChannel->ChannelIDList()->At(x)->GetChannelID() == channelid)
+      if (tmpEpgChannel->ChannelIDList().At(x)->GetChannelID() == channelid)
          return true;
    }
 

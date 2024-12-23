@@ -112,6 +112,7 @@ cXMLTVConfig XMLTVConfig;
 cXMLTVConfig::cXMLTVConfig(void)
 {
    epgSources = new cEPGSources;
+   epgChannels = new cEPGChannels;
    DB_initialized = false;
    episodesServerPort = 2006;
    wakeup  = false;
@@ -131,7 +132,7 @@ cXMLTVConfig::~cXMLTVConfig(void)
    XMLTVConfig.Save();
 
    delete epgSources;
-   epgChannels.RemoveAll();
+   delete epgChannels;
 }
 
 bool cXMLTVConfig::Load(const char *FileName)
@@ -203,7 +204,7 @@ bool cXMLTVConfig::Parse(const char *Name, const char *Extension, const char *Va
       }
    }
    else if (!strcmp(Section, "channel")) {
-      epgChannels.Add(new cEPGChannel(Name, Value));
+      epgChannels->Add(new cEPGChannel(Name, Value));
    }
 
    return true;
@@ -259,7 +260,7 @@ bool cXMLTVConfig::Save(void)
    Store("fixDuplTitleInShortttext", fixDuplTitleInShortttext ? "1" : "0", "options");
    Store("order",  GetDescrSequenceString(), "options");
 
-   for (cEPGChannel *ch = epgChannels.First(); ch; ch = epgChannels.Next(ch)) {
+   for (cEPGChannel *ch = epgChannels->First(); ch; ch = epgChannels->Next(ch)) {
       Store(ch->EPGChannelName(), *ch->ToString(), "channel");
    }
 

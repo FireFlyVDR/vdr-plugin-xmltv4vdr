@@ -335,7 +335,7 @@ time_t cEPGSource::XmltvTime2UTC(char *xmltvtime)
 {  // Convert xmltvtime string into time_t format
    time_t uxTime = 0;
    if (xmltvtime) {
-      struct tm tm_time = {0};
+      struct tm tm_time;
       int y = 0, m = 0, d = 0, hr = 0, mn = 0, sec = 0;
       int offset = 0;
       int fields = 0;
@@ -413,7 +413,7 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
 
    time_t begin = EVENT_LINGERTIME;
 
-   int lastError = 0;
+   int lastError = PARSE_NOERROR;
    int skipped = 0, outdated = 0, faulty = 0, imported = 0;
    int failed = 0;
    xmlChar *lastchannelid = NULL;
@@ -434,7 +434,7 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
       }
       if ((xmlStrcasecmp(node->name, (const xmlChar *) "programme")))
       {
-         node=node->next;
+         node = node->next;
          continue;
       }
 
@@ -462,7 +462,7 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
          epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel((const char *)channelid); // flags needed for ImportXMLTVEvent
          if (!epgChannel)
          {
-            esyslogs(this,"no mapping for channelid %s",channelid);
+            esyslogs(this,"no mapping for channelid %s", channelid);
             lastError = PARSE_NOMAPPING;
             xmlFree(channelid);
             node = node->next;
@@ -594,7 +594,7 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
       else
       {
          if (lastError != PARSE_IMPORTERR)
-            esyslogs(this,"failed to import event into DB");
+            esyslogs(this,"failed to import event(s) of %s into DB", epgChannel->EPGChannelName());
          lastError = PARSE_IMPORTERR;
          failed++;
       }
@@ -1107,14 +1107,14 @@ void cEPGSources::Action()
                for (int s = 0; s < sourceList.Size(); s++)
                {
                   cEPGSource *source = sourceList.At(s);
-                  cStringList *epgChannelList = source->EpgChannelList();
+                  const cStringList *epgChannelList = source->EpgChannelList();
                   for (int i = 0; i < epgChannelList->Size(); i++) {
                      const char *epgChannelName = epgChannelList->At(i);
                      if (cEPGChannel *epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel(epgChannelName)) { // has epgChannel
                         if (epgChannel && epgChannel->EPGSource() && epgChannel->EPGSource()->SourceName() && !strcmp(epgChannel->EPGSource()->SourceName(), source->SourceName())) {
                            if ((epgChannel->Flags() & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS >= APPEND_EXT_EVENTS) {
-                              for (int c = 0; c < epgChannel->ChannelIDList()->Size(); c++) {
-                                 tChannelID channelID = epgChannel->ChannelIDList()->At(c)->GetChannelID();
+                              for (int c = 0; c < epgChannel->ChannelIDList().Size(); c++) {
+                                 tChannelID channelID = epgChannel->ChannelIDList().At(c)->GetChannelID();
                                  success =  success && xmlTVDB->AppendEvents(channelID, epgChannel->Flags(), &totalSchedules, &totalEvents);
                               }
                            }

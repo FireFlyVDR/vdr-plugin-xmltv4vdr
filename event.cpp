@@ -10,8 +10,8 @@
 #include "debug.h"
 
 
-const char *cXMLTVStringList::ToString(const char *Delimiter)
-{  /// convert String List to one cString with elements separated by delimiter, default ='@'
+const char *cXMLTVStringList::ToString(const char *Delimiter) const
+{  /// convert StringList to one cString with elements separated by delimiter, default ='@'
    toString = "";
    for (int i = 0; i < Size(); i++) {
       toString.Append(At(i));
@@ -391,28 +391,28 @@ void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
                                     for (int i = 0; i < credits.Size(); i++) {
                                        cString before, middle, after;
                                        int parts = strsplit(credits.At(i), '~', before, middle, after);
-                                       if (!strcasecmp(*before, "director")) {
-                                          if (Flags & CREDITS_DIRECTORS) {
-                                             desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("director"), *after));
-                                             isActor = false;
-                                             nonEmpty = true;
-                                          }
-                                       }
-                                       else if(!strcasecmp(*before, "actor")) {
-                                          if (Flags & CREDITS_ACTORS) {
-                                             if (!isActor) {
-                                                desc.Append(*cString::sprintf("%s%s: ", nonEmpty ? "\n" : "", tr("actor")));
+                                       if (parts >= 2) {
+                                          if (!strcasecmp(*before, "director")) {
+                                             if (Flags & CREDITS_DIRECTORS) {
+                                                desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr("director"), *after));
+                                                isActor = false;
+                                                nonEmpty = true;
                                              }
-                                             if (parts == 3)
-                                                desc.Append(*cString::sprintf("%s%s (%s)", isActor ? mline : "", *middle, *after));
-                                             else
-                                                desc.Append(*cString::sprintf("%s%s", isActor ? mline : "", *after));
-                                             isActor = true;
-                                             nonEmpty = true;
                                           }
-                                       }
-                                       else {
-                                          if (Flags & CREDITS_OTHERS) {
+                                          else if(!strcasecmp(*before, "actor")) {
+                                             if (Flags & CREDITS_ACTORS) {
+                                                if (!isActor) {
+                                                   desc.Append(*cString::sprintf("%s%s: ", nonEmpty ? "\n" : "", tr("actor")));
+                                                }
+                                                if (parts == 3)
+                                                   desc.Append(*cString::sprintf("%s%s (%s)", isActor ? mline : "", *middle, *after));
+                                                else
+                                                   desc.Append(*cString::sprintf("%s%s", isActor ? mline : "", *after));
+                                                isActor = true;
+                                                nonEmpty = true;
+                                             }
+                                          }
+                                          else if (Flags & CREDITS_OTHERS) {
                                              desc.Append(*cString::sprintf("%s%s: %s", nonEmpty ? "\n" : "", tr(*before), *after));
                                              isActor = false;
                                              nonEmpty = true;
@@ -450,7 +450,6 @@ void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
                                     bool seasonLine = false;
                                     if (season) {
                                        desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? "\n" : "", tr("season"), season));
-                                       //desc.Append(*cString::sprintf("%s: %d\n", tr("season"), season));
                                        nonEmpty = true;
                                        seasonLine = (Flags & USE_SEASON_EPISODE_MULTILINE) == 0;
                                        xmlAux.Append(cString::sprintf("<season>%d</season>", season));
@@ -458,16 +457,13 @@ void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
 
                                     if (episode) {
                                        desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? (seasonLine?", " : "\n") : "", tr("episode"), episode));
-                                       //desc.Append(*cString::sprintf("%s: %d\n", tr("episode"), episode));
                                        nonEmpty = true;
-                                       //seasonLine = true;
                                        seasonLine = (Flags & USE_SEASON_EPISODE_MULTILINE) == 0;
                                        xmlAux.Append(cString::sprintf("<episode>%d</episode>", episode));
                                     }
 
                                     if (episodeOverall) {
                                        desc.Append(*cString::sprintf("%s%s: %d", nonEmpty ? (seasonLine?", " : "\n") : "", tr("overall episode"), episodeOverall));
-                                       //desc.Append(*cString::sprintf("%s: %d\n", tr("overall episode"), episodeOverall));
                                        nonEmpty = true;
                                        xmlAux.Append(cString::sprintf("<episodeOverall>%d</episodeOverall>", episodeOverall));
                                     }
@@ -484,12 +480,14 @@ void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
                                        int xtAge = 19;
                                        for (int i = 0; i < parentalRating.Size(); i++) {
                                           cString before, middle, after;
-                                          strsplit(parentalRating.At(i), '~', before, middle, after);
-                                          if (ratingText)
-                                             desc.Append(*cString::sprintf("%s%s: %s", i > 0 ? ", " : "", *before, *after));
+                                          int parts = strsplit(parentalRating.At(i), '~', before, middle, after);
+                                          if (parts == 2) {
+                                             if (ratingText && parts == 2)
+                                                desc.Append(*cString::sprintf("%s%s: %s", i > 0 ? ", " : "", *before, *after));
 
-                                          int pr = atoi(*after);
-                                          if (pr > 0 && pr < xtAge) xtAge = pr;
+                                             int pr = atoi(*after);
+                                             if (pr > 0 && pr < xtAge) xtAge = pr;
+                                          }
                                        }
                                        int dvbAge = Event->ParentalRating();
                                        if (xtAge < 19 && ((dvbAge > 0 && dvbAge > xtAge) || dvbAge == 0))
@@ -503,8 +501,9 @@ void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
                                        nonEmpty = true;
                                        for (int i = 0; i < starRating.Size(); i++) {
                                           cString before, middle, after;
-                                          strsplit(starRating.At(i), '~', before, middle, after);
-                                          desc.Append(*cString::sprintf("%s%s", i > 0 ? ", " : "", *after));
+                                          int parts = strsplit(starRating.At(i), '~', before, middle, after);
+                                          if (parts == 2)
+                                             desc.Append(*cString::sprintf("%s%s", i > 0 ? ", " : "", *after));
                                        }
                                     }
                                  }
@@ -840,21 +839,27 @@ bool cXMLTVEvent::FetchSeasonEpisode()
 
 int strsplit(const char *Source, const char delimiter, cString &Before, cString &Middle, cString &After)
 {
-   const char *split1 = strchr(Source, delimiter);
-   if (split1) {
-      Before = cString(Source, split1);
-      const char *split2 = strchr(split1 + 1, delimiter);
-      if (split2) {
-         Middle = cString(split1 + 1, split2);
-         After = cString(split2 + 1);
-         return 3;
-      }
-      else {
-         After = cString(split1 + 1);
-         return 2;
+   int parts = 0;
+   if (!isempty(Source)) {
+      const char *split1 = strchr(Source, delimiter);
+      if (split1) {
+         Before = cString(Source, split1);
+         parts = 1;
+         if (!isempty(split1 + 1)) {
+            const char *split2 = strchr(split1 + 1, delimiter);
+            if (split2) {
+               Middle = cString(split1 + 1, split2);
+               After = cString(split2 + 1);
+               parts = 3;
+            }
+            else {
+               After = cString(split1 + 1);
+               parts = 2;
+            }
+         }
       }
    }
-   return 1;
+   return parts;
 }
 
 #define nrmTupel(Symbol, Replacement) { Symbol, strlen(Symbol), Replacement }

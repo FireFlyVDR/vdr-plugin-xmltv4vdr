@@ -25,8 +25,8 @@ private:
 public:
    cMapObject(const char *A, const char *B) { a = A; b = B;};
    ~cMapObject() {};
-   const char *A()   { return a;};  // Source
-   const char *B()   { return b;};  // Picture
+   const char *A()   { return *a;};  // Source
+   const char *B()   { return *b;};  // Picture
 };
 
 class cMapList : public cVector<cMapObject *> {
@@ -98,7 +98,7 @@ private:
    cXMLTVEvent *FillXMLTVEventFromDB(sqlite3_stmt *stmt);
    int UnlinkPictures(const cXMLTVStringList *Pics, const char *ChannelID, const tEventID EventID);
    int UnlinkPictures(const char *Pics, const char *ChannelID, const tEventID EventID);
-   cString ChannelListToString(const cChannelIDList *ChannelIDList);
+   cString ChannelListToString(const cChannelIDList &ChannelIDList);
    bool DropEventList(int *LinksDeleted, int *EventsDeleted, const char *WhereClause);
 
 public:
@@ -116,10 +116,10 @@ public:
    void DropOutdatedEvents(time_t EndTime);
    bool CheckConsistency(bool Fix, cXMLTVStringList *CheckResult);
 
-   bool MarkEventsOutdated(const cChannelIDList *ChannelIDList);
-   bool DropOutdatedEvents(const cChannelIDList *ChannelIDList, time_t LastEventStarttime);
+   bool MarkEventsOutdated(const cChannelIDList &ChannelIDList);
+   bool DropOutdatedEvents(const cChannelIDList &ChannelIDList, time_t LastEventStarttime);
    bool ImportXMLTVEventPrepare(void);
-   bool ImportXMLTVEvent(cXMLTVEvent *xevent, cChannelIDList *ChannelIDList);
+   bool ImportXMLTVEvent(cXMLTVEvent *xevent, const cChannelIDList &ChannelIDList);
    bool ImportXMLTVEventFinalize();
    bool AddOrphanedPicture(const char *Source, const char *Picture);
    int DeleteOrphanedPictures(void);

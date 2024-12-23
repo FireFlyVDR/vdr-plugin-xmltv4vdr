@@ -201,8 +201,8 @@ cEPGChannel *cEPGChannels::GetEpgChannel(tChannelID ChannelID)
 {
    if (Count()) {
       for (cEPGChannel *epgChannel = First(); epgChannel; epgChannel = Next(epgChannel)) {
-         for (int x = 0; x < epgChannel->ChannelIDList()->Size(); x++) {
-            if (epgChannel->ChannelIDList()->At(x)->GetChannelID() == ChannelID)
+         for (int x = 0; x < epgChannel->ChannelIDList().Size(); x++) {
+            if (epgChannel->ChannelIDList().At(x)->GetChannelID() == ChannelID)
                return epgChannel;
          }
       }
@@ -223,8 +223,8 @@ bool cEPGChannels::ProcessChannel(const tChannelID ChannelID)
 {
    if (Count()) {
       for (int i = 0; i < Count(); i++) {
-         for (int x = 0; x < Get(i)->ChannelIDList()->Size(); x++) {
-            if (Get(i)->ChannelIDList()->At(x)->GetChannelID() == ChannelID)
+         for (int x = 0; x < Get(i)->ChannelIDList().Size(); x++) {
+            if (Get(i)->ChannelIDList().At(x)->GetChannelID() == ChannelID)
                return Get(i)->EPGSource() != NULL;
          }
       }

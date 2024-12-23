@@ -55,7 +55,7 @@ public:
    const char * GetLog()       { return *log; }
    bool Enabled()              { return enabled; }
    void Enable(bool Enable )   { enabled = Enable; }
-   cStringList *EpgChannelList()  { return &epgChannels; }
+   const cStringList *EpgChannelList() const { return &epgChannels; }
    int ExecTime()              { return exec_time; }
    void SetExecTime(int Time)  { exec_time = Time; }
    int ExecDays()              { return exec_days; }

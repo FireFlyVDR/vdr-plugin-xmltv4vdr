@@ -32,7 +32,7 @@ public:
    ~cMenuSetupXmltv4vdr();
    void Set(void);
    virtual eOSState ProcessKey(eKeys Key);
-   cStringList *ChannelList()  { return &channelStringList; }
+   const cStringList *ChannelList() const { return &channelStringList; }
 };
 
 #endif

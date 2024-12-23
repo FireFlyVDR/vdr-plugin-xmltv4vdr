@@ -13,9 +13,9 @@
 class cXMLTVStringList : public cStringList
 {
 private:
-   cString toString;
+   cString mutable toString;
 public:
-   const char *ToString(const char *delimiter = "@");
+   const char *ToString(const char *delimiter = "@") const;
    int SetStringList(const char *StringList, const char *delimiter = "@");
    bool AppendUnique(const char* String);
    int FindStr(const char *s) const;
@@ -103,27 +103,27 @@ public:
 
    void SetCredits(const char *Credits = NULL);
    void AddCredits(const char *CreditType, const char *Credit, const char *Addendum = NULL);
-   cXMLTVStringList *Credits()   { return &credits; }
+   const cXMLTVStringList *Credits() const { return &credits; }
 
    void SetCategories(const char *Categories = NULL);
    void AddCategory(const char *Category);
-   cXMLTVStringList *Category()  { return &category; }
+   const cXMLTVStringList *Category() const { return &category; }
 
    void SetReviews(const char *Reviews = NULL);
    void AddReview(const char *Review);
-   cXMLTVStringList *Review()    { return &review; }
+   const cXMLTVStringList *Review() const { return &review; }
 
    void SetParentalRating(const char *ParentalRating = NULL);
    void AddParentalRating(const char *System, const char *ParentalRating);
-   cXMLTVStringList *ParentalRating()    { return &parentalRating; }
+   const cXMLTVStringList *ParentalRating() const { return &parentalRating; }
 
    void SetStarRating(const char *StarRating = NULL);
    void AddStarRating(const char *System, const char *StarRating);
-   cXMLTVStringList *StarRating(){ return &starRating; }
+   const cXMLTVStringList *StarRating() const { return &starRating; }
 
    void SetPics(const char *Pics = NULL);
    void AddPic(const char *Pic);
-   cXMLTVStringList *Pics()      { return &pics; }
+   const cXMLTVStringList *Pics() const { return &pics; }
 
    void SetSeason(int Season = 0){ season = Season; }
    int Season(void)              { return season; }
