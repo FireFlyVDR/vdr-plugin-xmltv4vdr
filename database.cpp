@@ -1132,8 +1132,6 @@ bool cXMLTVDB::ImportXMLTVEvent(cXMLTVEvent *xtEvent, const cChannelIDList &Chan
    //bool success = ChannelIDList != NULL && ChannelIDList.Size() > 0;
    bool success = true;
    int cl = 0;
-   isyslog("ImportXMLTVEvent: ChannelIDList = %08X", &ChannelIDList);
-   isyslog("ImportXMLTVEvent: ChannelIDList.Size() = %d", ChannelIDList.Size());
    while (success && cl < ChannelIDList.Size())
    {
       cString channelID = ChannelIDList.At(cl)->GetChannelIDString();
@@ -1531,7 +1529,7 @@ bool cXMLTVDB::UpdateEvent(cEvent *Event, uint64_t Flags) //, const char *Channe
          else
          {
 #ifdef DBG_EPGHANDLER
-            tsyslog("UpdateEvent3: %s %s %d %02X%02X (%s) \"%s~%s\" no matching event found", *Time2Str(Event->StartTime()),*Event->ChannelID().ToString(), Event->EventID(), Event->TableID(), Event->Version(), GetChannelName(Event->ChannelID()), Event->Title(), Event->ShortText());
+            tsyslog("UpdateEvent3: %s %s %d %02X%02X (%s) \"%s~%s\" no matching event found", *Time2Str(Event->StartTime()),*Event->ChannelID().ToString(), Event->EventID(), Event->TableID(), Event->Version(), *GetChannelName(Event->ChannelID()), Event->Title(), Event->ShortText());
 #endif
             // remove Aux additions if any
             cString xmlAuxOthers;
@@ -1571,130 +1569,139 @@ bool cXMLTVDB::UpdateEvent(cEvent *Event, uint64_t Flags) //, const char *Channe
 bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSchedules, int *totalEvents)
 {
    bool success = true;
-   tEventID eventIDOffset = EXTERNAL_EVENT_OFFSET;
-
-   LOCK_SCHEDULES_WRITE
-   cSchedule *schedule = (cSchedule *)Schedules->GetSchedule(channelID);
+   tEventID eventIDOffset = ((Flags & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS == ONLY_EXT_EVENTS) ? 0 : EXTERNAL_EVENT_OFFSET;
    const cEvent *lastEvent = NULL;
-   if (!schedule) {
+   cString ChannelName = GetChannelName(channelID);
+
+   // get last Event of DVB schedule (or NULL if only external)
+   cStateKey SchedulesStateKey;
+   const cSchedules *Schedules = cSchedules::GetSchedulesRead(SchedulesStateKey);
+   if (Schedules) {
+      cSchedule *schedule = (cSchedule *)Schedules->GetSchedule(channelID);
+      if (schedule) {
+         lastEvent = schedule->Events()->Last();
 #ifdef DBG_APPENDEVENTS
-      tsyslog("AppendEvents: creating schedule for %s (%s)", GetChannelName(channelID), *channelID.ToString());
+         cString LastDate = lastEvent ? DayDateTime(lastEvent->EndTime()) : "";
 #endif
-      schedule = Schedules->AddSchedule(channelID);
-      if (!schedule) {
-         esyslog("Failed to create new schedule for %s (%s)", GetChannelName(channelID), *channelID.ToString());
-         success = false;
-      }
-   }
-   else {
-      if ((Flags & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS == ONLY_EXT_EVENTS) {
-         eventIDOffset = 0;
-      }
-   }
-
-   if (schedule) {
-      const cEvent *lastEvent = schedule->Events()->Last();
-#ifdef DBG_APPENDEVENTS
-      cString LastDate = lastEvent ? DayDateTime(lastEvent->EndTime()) : "";
-#endif
-
-      int deleted = 0;
-      while (lastEvent && lastEvent->EventID() >= eventIDOffset) {
-         cEvent *prevEvent = (cEvent *)lastEvent->Prev();
-         schedule->DelEvent((cEvent *)lastEvent);
-         lastEvent = prevEvent;
-         deleted++;
-      }
-
-#ifdef DBG_APPENDEVENTS
-      if (deleted)
-         tsyslog("AppendEvents: Channel ID: %s %2d %s - %s deleted", *channelID.ToString(), deleted, lastEvent?*DayDateTime(lastEvent->EndTime()):"Start", *LastDate);
-
-      if (lastEvent)
-         tsyslog("AppendEvents: last event: %s %u %s-%s %lu", *channelID.ToString(), lastEvent->EventID(), *DayDateTime(lastEvent->StartTime()), *TimeString(lastEvent->EndTime()), lastEvent->EndTime());
-      else
-         tsyslog("AppendEvents: last event: %s %u %s-%s %s", *channelID.ToString(), 0, "none", "none", "none");
-#endif
-      sqlite3_stmt *stmt;
-      cString sqlSelect = cString::sprintf("SELECT channelid, starttime, eventid, tableversion, xteventid, "
-         "src, title, shorttext, description, duration, season, episode, episodeoverall, origtitle, "
-         "country, year, credits, category, review, parentalrating, starrating, pics FROM epg "
-         "WHERE channelid='%s' AND starttime > %lu AND tableversion = %d "
-         "ORDER BY starttime ASC;",
-         *channelID.ToString(), lastEvent?lastEvent->StartTime() : 0, TABLEVERSION_UNSEEN);
-
-      int SQLrc = sqlite3_prepare_v2(DBHandle, *sqlSelect, -1, &stmt, NULL);
-      if (!(success = CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__))) {
-         return false;
-      }
-
-      SQLrc = sqlite3_step(stmt);
-      success = CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
-
-      time_t lastEndTime = lastEvent ? lastEvent->EndTime() : 0;
-      cString ChannelName = "";
-      int cnt = 0;
-      while (SQLrc == SQLITE_ROW)
-      {
-         cXMLTVEvent *xtEvent = FillXMLTVEventFromDB(stmt);
-         time_t nextStartTime;
-         if (xtEvent) {
-            xtEvent->SetXTEventID(xtEvent->GenerateEventID(xtEvent->StartTime(), EXTERNAL_EVENT_OFFSET));
-            cEvent *newEvent = new cEvent(xtEvent->XTEventID());
-            newEvent->SetTableID(0x6F);
-            newEvent->SetVersion(0xFF);
-            nextStartTime = xtEvent->StartTime();
-            int nextDuration = xtEvent->Duration();
-            if (lastEndTime && lastEndTime > xtEvent->StartTime())
-            {  // avoid overlapping events by shortening next event
-               tsyslog("AppendEvents adapt: %s E:%s S:%s %u", *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime), nextDuration/60);
-               nextStartTime = lastEndTime;
-               nextDuration -= lastEndTime - xtEvent->StartTime() - 60;
-               nextDuration -= nextDuration % 60; // round down to full minutes
-            }
-            if (nextDuration > xtEvent->Duration() - 300) {  // not more than 5 min delta
-               if (cnt < 4)
-                  tsyslog("AppendEvents %d add: %s End:%s Start:%s Dur:%u", cnt, *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime), nextDuration/60);
-               newEvent->SetStartTime(nextStartTime);
-               newEvent->SetDuration(nextDuration);
-//#ifdef DBG_APPENDEVENTS
-//               newEvent->SetTitle(*cString::sprintf("E: %s", xtEvent->Title()));
-//#else
-               newEvent->SetTitle(xtEvent->Title());
-//#endif
-               newEvent->SetShortText(xtEvent->ShortText());
-               newEvent->SetDescription(xtEvent->Description());
-               xtEvent->FillEventFromXTEvent(newEvent, Flags);
-               schedule->AddEvent(newEvent);
-               lastEndTime = xtEvent->StartTime() + xtEvent->Duration();
-#ifdef DBG_APPENDEVENTS
-               if (cnt < 4)
-                  tsyslog("new event appended: %s %5u %s %s~%s", *newEvent->ChannelID().ToString(), newEvent->EventID(),
-                          *Time2Str(newEvent->StartTime()), newEvent->Title(), newEvent->ShortText());
-#endif
-               cString sqlUpdate = cString::sprintf("UPDATE epg SET eventid=%u, tableversion=0x6fff WHERE channelid='%s' AND starttime=%lu;",
-                                                    (uint32_t)xtEvent->XTEventID(), *channelID.ToString(), xtEvent->StartTime());
-               ExecDBQuery(*sqlUpdate);
-               cnt++;
-            }
-            else
-               if (cnt < 4)
-                  tsyslog("AppendEvents %d skip: %s End:%s Start:%s Dur:%u", cnt, *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime), nextDuration/60);
-            DELETENULL(xtEvent);
+         while (lastEvent && lastEvent->EventID() >= eventIDOffset) {
+            cEvent *prevEvent = (cEvent *)lastEvent->Prev();
+            lastEvent = prevEvent;
          }
-         SQLrc = sqlite3_step(stmt);
       }
-      success = CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
+   }
+   SchedulesStateKey.Remove(false);
 
-      sqlite3_finalize(stmt);
+   cVector<cEvent *> eventCache(200);
+   sqlite3_stmt *stmt;
+   cString sqlSelect = cString::sprintf("SELECT channelid, starttime, eventid, tableversion, xteventid, "
+      "src, title, shorttext, description, duration, season, episode, episodeoverall, origtitle, "
+      "country, year, credits, category, review, parentalrating, starrating, pics FROM epg "
+      "WHERE channelid='%s' AND starttime > %lu AND tableversion = %d "
+      "ORDER BY starttime ASC;",
+      *channelID.ToString(), lastEvent?lastEvent->StartTime() : 0, TABLEVERSION_UNSEEN);
+
+   int SQLrc = sqlite3_prepare_v2(DBHandle, *sqlSelect, -1, &stmt, NULL);
+   if (!(success = CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__))) {
+      return false;
+   }
+
+   SQLrc = sqlite3_step(stmt);
+   success = CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
+
+   time_t lastEndTime = lastEvent ? lastEvent->EndTime() : 0;
+   int cnt = 0;
+   while (SQLrc == SQLITE_ROW)
+   {
+      cXMLTVEvent *xtEvent = FillXMLTVEventFromDB(stmt);
+      time_t nextStartTime;
+      if (xtEvent) {
+         xtEvent->SetXTEventID(xtEvent->GenerateEventID(xtEvent->StartTime(), EXTERNAL_EVENT_OFFSET));
+         cEvent *newEvent = new cEvent(xtEvent->XTEventID());
+         newEvent->SetTableID(0x6F);
+         newEvent->SetVersion(0xFF);
+         nextStartTime = xtEvent->StartTime();
+         int nextDuration = xtEvent->Duration();
+         if (lastEndTime && lastEndTime > xtEvent->StartTime())
+         {  // avoid overlapping events by shortening next event
+            tsyslog("AppendEvents adapt: %s E:%s S:%s %u", *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime), nextDuration/60);
+            nextStartTime = lastEndTime;
+            nextDuration -= lastEndTime - xtEvent->StartTime() - 60;
+            nextDuration -= nextDuration % 60; // round down to full minutes
+         }
+         if (nextDuration > xtEvent->Duration() - 300) {  // not more than 5 min delta
+            if (cnt < 4)
+               tsyslog("AppendEvents %d add: %s End:%s Start:%s Dur:%u", cnt, *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime), nextDuration/60);
+            newEvent->SetStartTime(nextStartTime);
+            newEvent->SetDuration(nextDuration);
+//#ifdef DBG_APPENDEVENTS
+//            newEvent->SetTitle(*cString::sprintf("E: %s", xtEvent->Title()));
+//#else
+            newEvent->SetTitle(xtEvent->Title());
+//#endif
+            newEvent->SetShortText(xtEvent->ShortText());
+            newEvent->SetDescription(xtEvent->Description());
+            xtEvent->FillEventFromXTEvent(newEvent, Flags);
+            eventCache.Append(newEvent);
+            lastEndTime = xtEvent->StartTime() + xtEvent->Duration();
 #ifdef DBG_APPENDEVENTS
-      if (cnt)
-         isyslog("AppendEvents added %3d events to %s", cnt, *channelID.ToString());
+            if (cnt < 4)
+               tsyslog("new event appended: %s %5u %s %s~%s", *channelID.ToString(), newEvent->EventID(),
+                       *Time2Str(newEvent->StartTime()), newEvent->Title(), newEvent->ShortText());
 #endif
-      if (cnt) {
+            cString sqlUpdate = cString::sprintf("UPDATE epg SET eventid=%u, tableversion=0x6fff WHERE channelid='%s' AND starttime=%lu;",
+                                                 (uint32_t)xtEvent->XTEventID(), *channelID.ToString(), xtEvent->StartTime());
+            ExecDBQuery(*sqlUpdate);
+            cnt++;
+         }
+         else
+            if (cnt < 4)
+               tsyslog("AppendEvents %d skip: %s End:%s Start:%s Dur:%u", cnt, *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime), nextDuration/60);
+         DELETENULL(xtEvent);
+      }
+      SQLrc = sqlite3_step(stmt);
+   }
+   success = CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
+   sqlite3_finalize(stmt);
+
+   if (cnt) {
+      LOCK_SCHEDULES_WRITE
+      cSchedule *schedule = Schedules->AddSchedule(channelID);
+      if (!schedule || (lastEvent != NULL && !schedule->Events()->Contains(lastEvent))) {
+         esyslog("Failed to get schedule or event for %s (%s) %08X", *ChannelName, *channelID.ToString(), schedule);
+      }
+      else {
+#ifdef DBG_APPENDEVENTS
+         cString LastDate = lastEvent ? DayDateTime(lastEvent->EndTime()) : "";
+#endif
+         int deleted = 0;
+         while (lastEvent && lastEvent->EventID() >= eventIDOffset) {
+            cEvent *prevEvent = (cEvent *)lastEvent->Prev();
+            schedule->DelEvent((cEvent *)lastEvent);
+            lastEvent = prevEvent;
+            deleted++;
+         }
+         time_t lastEndTime = lastEvent ? lastEvent->EndTime() : 0;
+#ifdef DBG_APPENDEVENTS
+         if (deleted)
+            tsyslog("AppendEvents: Channel ID: %s %2d %s - %s deleted", *channelID.ToString(), deleted, lastEvent?*DayDateTime(lastEvent->EndTime()):"Start", *LastDate);
+
+         if (lastEvent)
+            tsyslog("AppendEvents: last event: %s %u %s-%s %lu", *channelID.ToString(), lastEvent->EventID(), *DayDateTime(lastEvent->StartTime()), *TimeString(lastEvent->EndTime()), lastEvent->EndTime());
+         else
+            tsyslog("AppendEvents: last event: %s %u %s-%s %s", *channelID.ToString(), 0, "none", "none", "none");
+#endif
+         for (int i = 0; i < eventCache.Size(); i++) {
+            cEvent *newEvent = eventCache.At(i);
+            if (newEvent->StartTime() >= lastEndTime)
+               schedule->AddEvent(newEvent);
+         }
+
          schedule->SetModified();
-         (*totalSchedules)++;
+         ++*totalSchedules;
          *totalEvents += cnt;
+#ifdef DBG_APPENDEVENTS
+         isyslog("AppendEvents added %3d events to %s (%s)", cnt, *channelID.ToString(), *ChannelName);
+#endif
       }
    }
 
