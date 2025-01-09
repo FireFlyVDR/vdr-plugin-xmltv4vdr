@@ -57,8 +57,11 @@ cPluginXmltv4vdr::cPluginXmltv4vdr(void)
 
 cPluginXmltv4vdr::~cPluginXmltv4vdr()
 {  // Clean up after yourself!
-   if (XMLTVConfig.LogFile())
-      fclose(XMLTVConfig.LogFile());
+   if (XMLTVConfig.LogFile()) {
+      FILE *lf = XMLTVConfig.LogFile();
+      XMLTVConfig.SetLogfile(NULL);
+      fclose(lf);
+   }
 }
 
 const char *cPluginXmltv4vdr::CommandLineHelp(void)
@@ -260,10 +263,6 @@ void cPluginXmltv4vdr::Stop(void)
    XMLTVConfig.EPGSources()->StopThread();
    delete epghandler;
    XMLTVConfig.HouseKeeping()->StopHousekeeping();
-   if (XMLTVConfig.LogFile()) {
-      fclose(XMLTVConfig.LogFile());
-      XMLTVConfig.SetLogfile(NULL);
-   }
 }
 
 void cPluginXmltv4vdr::Housekeeping(void)
