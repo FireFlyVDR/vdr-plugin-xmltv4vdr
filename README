@@ -18,9 +18,12 @@ links to pictures. Beginning with version 0.4.5 it is also possible to add
 EPG events to the DVB EPG (if the external EPG exceeds the DVB EPG) or to use
 only the external EPG.
 The file(s) in XMLTV format must be provided by one (or more) additional
-grabber which are not part of this plugin.
-The elements to be imported can be configured selectivly by channel and type of
-event (movies, series or all).
+grabber. These grabber scripts are not part of this plugin and need to be
+executable by "/bin/sh -c <name of epg source>" so it should be in the path of
+the user executing VDR. If the XMLTV files are fetched in a difffernt way, an
+executable dummy script with this name is required.
+The elements to be imported can be configured selectivly by channel and type
+of event (movies, series, movies & series or all).
 Additionally the episode info from www.eplists.de is optionally integrated.
 
 Please be aware that depending on the data quality of the EPG not in every

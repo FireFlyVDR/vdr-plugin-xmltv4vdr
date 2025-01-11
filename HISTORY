@@ -21,3 +21,9 @@ VDR Plugin 'xmltv4vdr' Revision History
 - replaced MainThreadHook() with own thread
 NOTE: This version introduces a new database scheme and therefore an
       import of external events is required after the update
+
+2025-01-11: Version 0.4.6-Beta
+- fixed compiling under Debian (reported by dile @VDRportal)
+- fixed importing in empty schedule
+- fixed responisveness during import of events into VDR (reported by dile @VDRportal)
+- refactored XMLTV import to improve robustness especially if unrequested channels are found (reported by dile and Paulaner @VDRportal)
