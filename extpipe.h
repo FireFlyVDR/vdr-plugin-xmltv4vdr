@@ -21,7 +21,7 @@ public:
    cExtPipe(cString SourceName);
    ~cExtPipe(void);
    bool Open(cString Command);
-   int Close(void);
+   bool Close(int *ReturnCode = NULL);
    bool GetResult(char **outBuffer, size_t &outBufferSize, char **errBuffer, size_t &errBufferSize);
 };
 

@@ -185,9 +185,9 @@ bool cEPGSource::ReadConfig(void)
 }
 
 
-int cEPGSource::ReadXMLTVfile(char *&xmltv_buffer, size_t &size)
+bool cEPGSource::ReadXMLTVfile(char *&xmltv_buffer, size_t &size)
 {  // read xmltv file into memory buffer
-   int rc = 0;
+   bool success = true;
    cString xmltv_file = cString::sprintf("%s/%s.xmltv", XMLTVConfig.EPGSourcesDir(), *sourceName);
    dsyslogs(this,"reading from '%s'", *xmltv_file);
 
@@ -195,7 +195,7 @@ int cEPGSource::ReadXMLTVfile(char *&xmltv_buffer, size_t &size)
    if (xmltv_fd == -1)
    {
       esyslogs(this, "failed to open '%s'", *xmltv_file);
-      rc = 17;
+      success = false;
    }
    else
    {
@@ -204,7 +204,7 @@ int cEPGSource::ReadXMLTVfile(char *&xmltv_buffer, size_t &size)
       {
          esyslogs(this, "failed to stat '%s'", *xmltv_file);
          close(xmltv_fd);
-         rc = 18;
+         success = false;
       }
       else 
       {
@@ -214,14 +214,14 @@ int cEPGSource::ReadXMLTVfile(char *&xmltv_buffer, size_t &size)
          {
             close(xmltv_fd);
             esyslogs(this, "out of memory while reading '%s'", *xmltv_file);
-            rc = 20;
+            success = false;
          }
          else 
          {
             if (read(xmltv_fd, xmltv_buffer, statbuf.st_size) != statbuf.st_size)
             {
                esyslogs(this, "failed to read '%s'", *xmltv_file);
-               rc = 21;
+               success = false;
                free(xmltv_buffer);
                xmltv_buffer = NULL;
             }
@@ -229,7 +229,7 @@ int cEPGSource::ReadXMLTVfile(char *&xmltv_buffer, size_t &size)
          }
       }
    }
-   return rc;
+   return success;
 }
 
 
@@ -241,6 +241,7 @@ bool cEPGSource::Execute(void)
    char *errBuffer = NULL;
    size_t outBufferSize = 0;
    size_t errBufferSize = 0;
+   bool success = true;
 #define MAX_TRIES 3
 
    cString cmd = cString::sprintf("%s %i '%s' %i ", *sourceName, daysInAdvance, isempty(*pin) ? "" : *pin, usePics);
@@ -250,7 +251,7 @@ bool cEPGSource::Execute(void)
    if (isempty(*epgChannels))
    {
       esyslogs(this,"no channels, please configure source");
-      return 0;
+      return false;
    }
 
    cmd.Append(*epgChannels);
@@ -259,75 +260,69 @@ bool cEPGSource::Execute(void)
    isyslogs(this,"%s", *cString::sprintf("%s %i '%s' %i %s", *sourceName, daysInAdvance, isempty(*pin) ? "" : "X@@@", usePics, *epgChannels));
 
    int tries = 0;
-   int rc = -1;
    do
    {
       tries++;
       cExtPipe extPipe(sourceName);
-      if (!extPipe.Open(cmd))
+      if (!((success = extPipe.Open(cmd))))
       {
          esyslogs(this,"failed to open pipe");
       }
       else
       {
          running = true;
-         extPipe.GetResult(&outBuffer, outBufferSize, &errBuffer, errBufferSize);
-         rc = extPipe.Close();
+         success = extPipe.GetResult(&outBuffer, outBufferSize, &errBuffer, errBufferSize);
+         if (errBuffer && XMLTVConfig.LogFile())
+         {  // output all stderr lines to debug log
+            char *saveptr;
+            char *line = strtok_r(errBuffer, "\n", &saveptr);
+            while (line) {
+               tsyslogs(this, "%s", line);
+               line = strtok_r(NULL, "\n", &saveptr);
+            }
+         }
+         free(errBuffer);
+         errBuffer = NULL;
+         errBufferSize = 0;
+         success &= extPipe.Close();
       }
 
-      if (rc == 0)
+      if (success)
       {
          if (!usePipe) // use file
-            rc = ReadXMLTVfile(outBuffer, outBufferSize);  // read xmltv file into memory buffer
+            success = ReadXMLTVfile(outBuffer, outBufferSize);  // read xmltv file into memory buffer
       }
       else 
       {
          dsyslogs(this, "waiting 60 seconds");
          int l = 0;
-         while (l < 300) {
+         while (l < 300) {  // TODO
             cCondWait::SleepMs(200);
             if (!XMLTVConfig.EPGSources()->Active()) {
                isyslogs(this, "request to stop from vdr");
-               return 129;
+               return false;
             }
             l++;
          }
       }
-
-      // output all stderr lines to syslog
-      if (errBuffer)
-      {
-         char *saveptr;
-         char *line = strtok_r(errBuffer, "\n", &saveptr);
-         char *lastLine = (char *) "";
-         while (line)
-         {
-            if (strcmp(lastLine, line))
-            {
-               tsyslogs(this, line);
-               lastLine = line;
-            }
-            line = strtok_r(NULL, "\n", &saveptr);
-         }
-         free(errBuffer);
-      }
-   } while (rc > 0 && tries < MAX_TRIES);
+   } while (!success && tries < MAX_TRIES);
 
 
-   if (rc > 0 && tries == MAX_TRIES) // failed
+   if (!success && tries == MAX_TRIES) // failed
       esyslogs(this, "aborting after %i tries", tries);
-   else {
-      isyslogs(this, "successfully executed after %i %s", tries, tries > 1 ? "try" : "tries");
+   else
+   {
+      isyslogs(this, "successfully executed after %i %s", tries, tries == 1 ? "try" : "tries");
 
-      if ((rc == 0) && (outBuffer)) {
-         rc = ParseAndImportXMLTV(outBuffer, outBufferSize, *sourceName);
+      if (success && (outBuffer)) {
+         success = ParseAndImportXMLTV(outBuffer, outBufferSize, *sourceName);
          XMLTVConfig.StoreSourceParameter(this);  // save lastEventStartTime
          XMLTVConfig.Save();
       }
    }
 
    running = false;
-   return rc == 0;
+   return success;
 }
 
 
@@ -363,7 +358,7 @@ time_t cEPGSource::XmltvTime2UTC(char *xmltvtime)
 }
 
 
-int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *SourceName)
+bool cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *SourceName)
 {  // process the buffer with the XMLTV file in memory
    // add episode info
    // import event into DB for all mapped DVB channels
@@ -376,7 +371,7 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
    if (!xmltv)
    {
       esyslogs(this,"failed to parse xmltv");
-      return 32;
+      return false;
    }
 
    xmlNodePtr rootnode = xmlDocGetRootElement(xmltv);
@@ -384,7 +379,7 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
    {
       esyslogs(this,"no rootnode in xmltv");
       xmlFreeDoc(xmltv);
-      return 33;
+      return false;
    }
 
    /// - open DB and begin Transaction
@@ -393,7 +388,7 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
    if (!xmlTVDB->OpenDBConnection())
    {
       xmlFreeDoc(xmltv);
-      return 34;
+      return false;
    }
 
    cEpisodesDB *episodesDB = NULL;
@@ -408,7 +403,7 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
       xmlTVDB->CloseDBConnection();
       delete xmlTVDB;
       xmlFreeDoc(xmltv);
-      return 35;
+      return false;
    }
 
    time_t begin = EVENT_LINGERTIME;
@@ -454,13 +449,23 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
       {  // new channelid
          if (lastchannelid) xmlFree(lastchannelid);
          lastchannelid = xmlStrdup(channelid);
-         if (epgChannel) {  // drop superseded events of previous channel
+         if (epgChannel && lastError == PARSE_NOERROR) {  // drop superseded events of previous channel
             xmlTVDB->DropOutdatedEvents(epgChannel->ChannelIDList(), lastEventStartTime); // Drop all events not in current XML
             xmlTVDB->Transaction_End();
          }
 
+         if (!XMLTVConfig.EPGChannels()->IsActiveEPGChannel((const char *)channelid, *sourceName)) {
+            epgChannel = NULL;
+            isyslogs(this,"found additional channelid %s", channelid);
+            lastError = PARSE_ADDITIONALCHANNELID;
+            xmlFree(channelid);
+            node = node->next;
+            skipped++;
+            continue;
+         }
+
          epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel((const char *)channelid); // flags needed for ImportXMLTVEvent
-         if (!epgChannel)
+         if (!epgChannel || epgChannel->ChannelIDList().Size() == 0)
          {
             esyslogs(this,"no mapping for channelid %s", channelid);
             lastError = PARSE_NOMAPPING;
@@ -470,133 +475,136 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
             continue;
          }
          lastStoptime = 0;
+         lastError = PARSE_NOERROR;
          xmlTVDB->Transaction_Begin();
          xmlTVDB->MarkEventsOutdated(epgChannel->ChannelIDList()); // Mark all events of Channel as outdated;
       }
       xmlFree(channelid);
 
-      // get start/stop times
-      xmlChar *start = NULL, *stop = NULL;
-      time_t starttime = 0;
-      time_t stoptime = 0;
-      start = xmlGetProp(node, (const xmlChar *)"start");
-      if (start)
-      {
-         starttime = XmltvTime2UTC((char *)start);
-         if (starttime)
+      if (epgChannel) {
+         // get start/stop times
+         xmlChar *start = NULL, *stop = NULL;
+         time_t starttime = 0;
+         time_t stoptime = 0;
+         start = xmlGetProp(node, (const xmlChar *)"start");
+         if (start)
          {
-            stop = xmlGetProp(node, (const xmlChar *)"stop");
-            if (stop)
-               stoptime = XmltvTime2UTC((char *)stop);
-         }
-      }
-
-      if (!starttime)
-      {
-         if (lastError != PARSE_XMLTVERR)
-            esyslogs(this,"no starttime, check xmltv file");
-         lastError = PARSE_XMLTVERR;
-         node = node->next;
-         faulty++;
-         if (start) xmlFree(start);
-         if (stop) xmlFree(stop);
-         continue;
-      }
-
-      if (stoptime < begin) // import only events with stoptime later than EPGlinger time (ignore events before)
-      {  // if event in XML ends before begintime then parse icon node to find pictures and put them in orphaned list to check if they are obsolete
-         xmlNodePtr childNode = node->xmlChildrenNode;
-         while (childNode)
-         {
-            if (node->type == XML_ELEMENT_NODE && !xmlStrcasecmp(childNode->name, (const xmlChar *)"icon")) {
-               xmlChar *src = xmlGetProp(childNode, (const xmlChar *)"src");
-               if (src) {
-                  const xmlChar *f = xmlStrstr(src, (const xmlChar *)"://");
-                  if (f) {  // url: skip scheme and scheme-specific-part
-                     f += 3;
-                  }
-                  else {  // just try it
-                     f = src;
-                  }
-                  struct stat statbuf;
-                  if (stat((const char *) f, &statbuf) != -1) {
-                     char *file = strrchr((char *)f, '/');
-                     if (file)
-                        xmlTVDB->AddOrphanedPicture(SourceName, ++file);
-                  }
-                  xmlFree(src);
-               }
+            starttime = XmltvTime2UTC((char *)start);
+            if (starttime)
+            {
+               stop = xmlGetProp(node, (const xmlChar *)"stop");
+               if (stop)
+                  stoptime = XmltvTime2UTC((char *)stop);
             }
-            childNode = childNode->next;
          }
 
-         node = node->next;
-         if (start) xmlFree(start);
-         if (stop) xmlFree(stop);
-         outdated++; // don't count expired events as "skipped"
-         continue;
-      }
-
-      xtEvent.SetStartTime(starttime);
-
-      if (stoptime)
-      {
-         if (stoptime < starttime)
+         if (!starttime)
          {
-            if (stoptime < starttime) {
-               esyslogs(this,"%s: stoptime (%s) < starttime(%s), check xmltv file", lastchannelid, stop, start);
-               lastError = PARSE_XMLTVERR;
-            }
+            if (lastError != PARSE_XMLTVERR)
+               esyslogs(this,"no starttime, check xmltv file");
+            lastError = PARSE_XMLTVERR;
             node = node->next;
             faulty++;
             if (start) xmlFree(start);
             if (stop) xmlFree(stop);
             continue;
          }
-         xtEvent.SetDuration(stoptime-starttime);
-         lastStoptime = stoptime;
-      }
 
-      if (start) xmlFree(start);
-      if (stop) xmlFree(stop);
+         if (stoptime < begin) // import only events with stoptime later than EPGlinger time (ignore events before)
+         {  // if event in XML ends before begintime then parse icon node to find pictures and put them in orphaned list to check if they are obsolete
+            xmlNodePtr childNode = node->xmlChildrenNode;
+            while (childNode)
+            {
+               if (node->type == XML_ELEMENT_NODE && !xmlStrcasecmp(childNode->name, (const xmlChar *)"icon")) {
+                  xmlChar *src = xmlGetProp(childNode, (const xmlChar *)"src");
+                  if (src) {
+                     const xmlChar *f = xmlStrstr(src, (const xmlChar *)"://");
+                     if (f) {  // url: skip scheme and scheme-specific-part
+                        f += 3;
+                     }
+                     else {  // just try it
+                        f = src;
+                     }
+                     struct stat statbuf;
+                     if (stat((const char *) f, &statbuf) != -1) {
+                        char *file = strrchr((char *)f, '/');
+                        if (file)
+                           xmlTVDB->AddOrphanedPicture(SourceName, ++file);
+                     }
+                     xmlFree(src);
+                  }
+               }
+               childNode = childNode->next;
+            }
 
-      // fill remaining fields in xEvent from XML node
-      if (!FillXTEventFromXmlNode(&xtEvent, node))
-      {
-         if (lastError != PARSE_FETCHERR)
-            esyslogs(this,"failed to fetch event");
-         lastError = PARSE_FETCHERR;
-         node = node->next;
-         failed++;
-         continue;
-      }
+            node = node->next;
+            if (start) xmlFree(start);
+            if (stop) xmlFree(stop);
+            outdated++; // don't count expired events as "skipped"
+            continue;
+         }
 
-      if(episodesDB)
-         episodesDB->QueryEpisode(&xtEvent);
+         xtEvent.SetStartTime(starttime);
 
-      const xmlError* xmlErr = xmlGetLastError();
-      if (xmlErr && xmlErr->code)
-      {
-         esyslogs(this, "xmlError: %s", xmlErr->message);
-      }
+         if (stoptime)
+         {
+            if (stoptime < starttime)
+            {
+               if (stoptime < starttime) {
+                  esyslogs(this,"%s: stoptime (%s) < starttime(%s), check xmltv file", lastchannelid, stop, start);
+                  lastError = PARSE_XMLTVERR;
+               }
+               node = node->next;
+               faulty++;
+               if (start) xmlFree(start);
+               if (stop) xmlFree(stop);
+               continue;
+            }
+            xtEvent.SetDuration(stoptime-starttime);
+            lastStoptime = stoptime;
+         }
 
-      // set xtEventID if empty
-      if (!xtEvent.XTEventID())
-         xtEvent.SetXTEventID(xtEvent.StartTime());
+         if (start) xmlFree(start);
+         if (stop) xmlFree(stop);
 
-      // insert xtEvent in DB for all mapped channels
-      if (xmlTVDB->ImportXMLTVEvent(&xtEvent, epgChannel->ChannelIDList()))
-      {  // successfully imported
-         imported++;
-         if (lastEventStartTime < starttime)
-            lastEventStartTime = starttime;
-      }
-      else
-      {
-         if (lastError != PARSE_IMPORTERR)
-            esyslogs(this,"failed to import event(s) of %s into DB", epgChannel->EPGChannelName());
-         lastError = PARSE_IMPORTERR;
-         failed++;
+         // fill remaining fields in xEvent from XML node
+         if (!FillXTEventFromXmlNode(&xtEvent, node))
+         {
+            if (lastError != PARSE_FETCHERR)
+               esyslogs(this,"failed to fetch event");
+            lastError = PARSE_FETCHERR;
+            node = node->next;
+            failed++;
+            continue;
+         }
+
+         if(episodesDB)
+            episodesDB->QueryEpisode(&xtEvent);
+
+         const xmlError* xmlErr = xmlGetLastError();
+         if (xmlErr && xmlErr->code)
+         {
+            esyslogs(this, "xmlError: %s", xmlErr->message);
+         }
+
+         // set xtEventID if empty
+         if (!xtEvent.XTEventID())
+            xtEvent.SetXTEventID(xtEvent.StartTime());
+
+         // insert xtEvent in DB for all mapped channels
+         if (xmlTVDB->ImportXMLTVEvent(&xtEvent, epgChannel->ChannelIDList()))
+         {  // successfully imported
+            imported++;
+            if (lastEventStartTime < starttime)
+               lastEventStartTime = starttime;
+         }
+         else
+         {
+            if (lastError != PARSE_IMPORTERR)
+               esyslogs(this,"failed to import event(s) of %s into DB", epgChannel->EPGChannelName());
+            lastError = PARSE_IMPORTERR;
+            failed++;
+         }
       }
 
       node = node->next;
@@ -632,7 +640,7 @@ int cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sourc
       isyslogs(this,"xmltv buffer parsed, imported %i xmltv events into DB - see ERRORs above!", imported);
 
    xmlFreeDoc(xmltv);
-   return 0;
+   return true;
 }
 
 
@@ -914,7 +922,6 @@ bool cEPGSource::ProvidesChannel(const char *EPGchannelName)
 {
    return(epgChannels.Find(EPGchannelName) > -1);
 }
-
 
 void cEPGSource::Add2Log(struct tm *Tm, const char Prefix, const char *Line)
 {  // append Line to Log

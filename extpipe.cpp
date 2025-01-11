@@ -110,7 +110,7 @@ bool cExtPipe::Open(cString Command)
 
 bool cExtPipe::GetResult(char **outBuffer, size_t &outBufferSize, char **errBuffer, size_t &errBufferSize)
 {
-#define CHUNKSIZE 4095
+#define CHUNKSIZE 4096
    size_t outBufferOffset = 0;
    size_t errBufferOffset = 0;
    int fdsopen = 2;
@@ -125,56 +125,52 @@ bool cExtPipe::GetResult(char **outBuffer, size_t &outBufferSize, char **errBuff
       if (rc > 0)  // 0 = timeout
       {
          if (fds[0].revents & POLLIN)
-         {  // StdOut
+         {  // stdout
             int len = 0;
             do {
                if (outBufferOffset + CHUNKSIZE + 1 > outBufferSize) {
-                  outBufferSize += CHUNKSIZE + 1;
+                  outBufferSize += 10*CHUNKSIZE + 1;
                   char *newBuffer = (char *)realloc(*outBuffer, outBufferSize);
-                  if (!newBuffer) {
-                     free(*outBuffer);
-                     *outBuffer = NULL;
-                     outBufferSize = 0;
+                  if (newBuffer) {
+                     *outBuffer = newBuffer;
+                  }
+                  else {
+                     esyslog("failed to reallocate outBuffer with %d Bytes", outBufferSize);
+                     rc = -2;
                      break;
                   }
-                  else
-                     *outBuffer = newBuffer;
                }
 
                len = read(f_stdout, *outBuffer + outBufferOffset, CHUNKSIZE);
-               if (len <= 0) {
-                  break;
-               }
-               outBufferOffset += len;
-            } while (len == CHUNKSIZE && *outBuffer);
-            if (!*outBuffer)
+               if (len > 0)
+                  outBufferOffset += len;
+            } while (len > 0);
+            if (rc < 0)
                break;
          }
 
          if (fds[1].revents & POLLIN)
-         {  // StdErr
+         {  // stderr
             int len = 0;
             do {
                if (errBufferOffset + CHUNKSIZE + 1 > errBufferSize) {
-                  errBufferSize += CHUNKSIZE + 1;
+                  errBufferSize += 2*CHUNKSIZE + 1;
                   char *newBuffer = (char *)realloc(*errBuffer, errBufferSize);
-                  if (!newBuffer) {
-                     free(*errBuffer);
-                     *errBuffer = NULL;
-                     errBufferSize = 0;
+                  if (newBuffer) {
+                     *errBuffer = newBuffer;
+                  }
+                  else {
+                     esyslog("Failed to reallocate errBuffer with %d Bytes", errBufferSize);
+                     rc = -2;
                      break;
                   }
-                  else
-                     *errBuffer = newBuffer;
                }
 
                len = read(f_stderr, *errBuffer + errBufferOffset, CHUNKSIZE);
-               if (len <= 0) {
-                  break;
-               }
-               errBufferOffset += len;
-            } while (len == CHUNKSIZE && *errBuffer);
-            if (!*errBuffer) 
+               if (len > 0)
+                  errBufferOffset += len;
+            } while (len > 0);
+            if (rc < 0)
                break;
          }
 
@@ -200,16 +196,13 @@ bool cExtPipe::GetResult(char **outBuffer, size_t &outBufferSize, char **errBuff
    return rc >= 0;
 }
 
-int cExtPipe::Close(void)
+bool cExtPipe::Close(int *ReturnCode)
 {
-   // returns: 
-   // nur wenn rc > 0 wird weiter gemacht d.h. <=0 ist ein Fehler
-   // d.h. rc muss größer 0 sein und WEXITSTATUS == 0
-   //
+   // ReturnCode:
    // -1   if aborted or error occurred
-   // >=0  exit code of ecxternal script
+   // >=0  exit code of external script
 
-   int ret = -1;
+   int rc = -1;
 
    int wstatus = -1;
    if (pid > 0)     // if child still exists
@@ -217,47 +210,49 @@ int cExtPipe::Close(void)
       int i = 5;
       do
       {   // loop 5x 100ms and check if child still exists
-         ret = waitpid(pid, &wstatus, WNOHANG);  // returns pid if terminated, 0 pid still exists, -1 on error
-         if (ret < 0)  // Error
+         rc = waitpid(pid, &wstatus, WNOHANG);  // returns pid if terminated, 0 pid still exists, -1 on error
+         if (rc < 0)  // Error
          {
-            LOG_ERROR;
+            LOG_ERROR_STR("Closing external pipe");
             break;
          }
          i--;
          cCondWait::SleepMs(100);
-      } while (ret != pid && i > 0);
+      } while (rc != pid && i > 0);
 
-      if (ret != pid)
+      if (rc != pid)
       {
          kill(pid, SIGKILL);
-         ret = 9;
+         rc = 9;
       }
-      //else {
+
       if (WIFEXITED(wstatus)) {
-         ret = WEXITSTATUS(wstatus);
-         isyslog("'%s' EPGsource finished with return code %d", *sourceName, ret);
+         rc = WEXITSTATUS(wstatus);
+         if ( rc == 0)
+            isyslog("'%s' EPGsource finished with return code %d", *sourceName, rc);
+         else
+            esyslog("'%s' EPGsource finished with return code %d - is script '%s' in path and executable?", *sourceName, rc, *sourceName);
       }
       else if (WIFSIGNALED(wstatus)) {
-         ret = WTERMSIG(wstatus);
-         isyslog("'%s' EPGsource received signal %d", *sourceName, ret);
+         rc = WTERMSIG(wstatus);
+         esyslog("'%s' EPGsource received signal %d", *sourceName, rc);
       }
       pid = -1;
    }
 
-   // close stderr
    if (f_stderr != -1)
-   {
+   {  // close stderr
       close(f_stderr);
       f_stderr = -1;
    }
 
-   // close stdout
    if (f_stdout != -1)
-   {
+   {  // close stdout
       close(f_stdout);
       f_stdout = -1;
    }
 
-
-   return ret;
+   if (ReturnCode)
+      *ReturnCode = rc;
+   return rc == 0;
 }

@@ -39,8 +39,8 @@ private:
    time_t lastSuccessfulRun;
    bool ReadConfig(void);
    time_t XmltvTime2UTC(char *xmltvtime);
-   int ReadXMLTVfile(char *&xmltv_buffer, size_t &size);
-   int ParseAndImportXMLTV(char *buffer, int bufsize, const char *SourceName);
+   bool ReadXMLTVfile(char *&xmltv_buffer, size_t &size);
+   bool ParseAndImportXMLTV(char *buffer, int bufsize, const char *SourceName);
    bool FillXTEventFromXmlNode(cXMLTVEvent *xtEvent, xmlNodePtr node);
 public:
    cEPGSource(const char *Name);
@@ -79,6 +79,7 @@ public:
    {
       PARSE_NOERROR = 0,
       PARSE_XMLTVERR,
+      PARSE_ADDITIONALCHANNELID,
       PARSE_NOMAPPING,
       PARSE_NOCHANNELID,
       PARSE_FETCHERR,

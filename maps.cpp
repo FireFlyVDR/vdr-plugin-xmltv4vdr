@@ -169,10 +169,11 @@ bool cEPGChannels::HasActiveEPGChannels(const char *SourceName)
    }
    return false;
 }
+
 cString cEPGChannels::GetActiveEPGChannels(const char *SourceName)
 {
    cString epgChannelNames = "";
-   if (SourceName) {
+   if (!isempty(SourceName)) {
       cEPGChannel *epgChannel = First();
       while (epgChannel != NULL) {
          if (epgChannel->EPGSource() && !strcmp(SourceName, epgChannel->EPGSource()->SourceName())) {
@@ -185,6 +186,22 @@ cString cEPGChannels::GetActiveEPGChannels(const char *SourceName)
 
    return epgChannelNames;
 }
+
+bool cEPGChannels::IsActiveEPGChannel(const char *EpgChannelName, const char *SourceName)
+{
+   bool isActive = false;
+   if (!isempty(EpgChannelName) && !isempty(SourceName)) {
+      cEPGChannel *epgChannel = First();
+      while (epgChannel != NULL && !isActive) {
+         if (epgChannel->EPGChannelName() && !strcmp(EpgChannelName, epgChannel->EPGChannelName()))
+            isActive = (epgChannel->EPGSource() && !strcmp(SourceName, epgChannel->EPGSource()->SourceName()));
+         epgChannel = Next(epgChannel);
+      }
+   }
+
+   return isActive;
+}
+
 
 cEPGChannel* cEPGChannels::GetEpgChannel(const char* EpgChannelName)
 {

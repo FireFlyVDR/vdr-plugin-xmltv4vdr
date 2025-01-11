@@ -134,6 +134,7 @@ public:
    cEPGSource *GetEpgSource(const char *EPGchannel);
    bool HasActiveEPGChannels(const char *SourceName);
    cString GetActiveEPGChannels(const char *SourceName);
+   bool IsActiveEPGChannel(const char *EpgChannelName, const char *SourceName);
    cEPGChannel *GetEpgChannel(const char *EpgChannelName);
    cEPGChannel *GetEpgChannel(tChannelID ChannelID);
    void SetAllFlags(uint64_t flags);
