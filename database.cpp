@@ -1633,11 +1633,7 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
                tsyslog("AppendEvents %d add: %s End:%s Start:%s Dur:%u", cnt, *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime), nextDuration/60);
             newEvent->SetStartTime(nextStartTime);
             newEvent->SetDuration(nextDuration);
-//#ifdef DBG_APPENDEVENTS
-//            newEvent->SetTitle(*cString::sprintf("E: %s", xtEvent->Title()));
-//#else
             newEvent->SetTitle(xtEvent->Title());
-//#endif
             newEvent->SetShortText(xtEvent->ShortText());
             newEvent->SetDescription(xtEvent->Description());
             xtEvent->FillEventFromXTEvent(newEvent, Flags);
@@ -1663,45 +1659,59 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
    success = CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
    sqlite3_finalize(stmt);
 
-   if (cnt) {
-      LOCK_SCHEDULES_WRITE
-      cSchedule *schedule = Schedules->AddSchedule(channelID);
-      if (!schedule || (lastEvent != NULL && !schedule->Events()->Contains(lastEvent))) {
-         esyslog("Failed to get schedule or event for %s (%s) %08X", *ChannelName, *channelID.ToString(), schedule);
+   if (success & cnt > 0) {
+      {
+         LOCK_CHANNELS_WRITE;
+         LOCK_SCHEDULES_WRITE;
+         const cChannel *channel = Channels->GetByChannelID(channelID);
+         const cSchedule *schedule = Schedules->GetSchedule(channel, true);
+         if (!schedule || (lastEvent != NULL && !schedule->Events()->Contains(lastEvent))) {
+            esyslog("Failed to get schedule or event for %s (%s) %08X", *ChannelName, *channelID.ToString(), schedule);
+            success = false;
+         }
       }
-      else {
-#ifdef DBG_APPENDEVENTS
-         cString LastDate = lastEvent ? DayDateTime(lastEvent->EndTime()) : "";
-#endif
-         int deleted = 0;
-         while (lastEvent && lastEvent->EventID() >= eventIDOffset) {
-            cEvent *prevEvent = (cEvent *)lastEvent->Prev();
-            schedule->DelEvent((cEvent *)lastEvent);
-            lastEvent = prevEvent;
-            deleted++;
+      if (success)
+      {
+         LOCK_SCHEDULES_WRITE;
+         cSchedule *schedule = (cSchedule *)Schedules->GetSchedule(channelID);
+         if (!schedule) {  // this should never fail but who knows ....
+            esyslog("Failed to get schedule for %s (%s) %08X", *ChannelName, *channelID.ToString(), schedule);
+            success = false;
          }
-         time_t lastEndTime = lastEvent ? lastEvent->EndTime() : 0;
+         else {
 #ifdef DBG_APPENDEVENTS
-         if (deleted)
-            tsyslog("AppendEvents: Channel ID: %s %2d %s - %s deleted", *channelID.ToString(), deleted, lastEvent?*DayDateTime(lastEvent->EndTime()):"Start", *LastDate);
-
-         if (lastEvent)
-            tsyslog("AppendEvents: last event: %s %u %s-%s %lu", *channelID.ToString(), lastEvent->EventID(), *DayDateTime(lastEvent->StartTime()), *TimeString(lastEvent->EndTime()), lastEvent->EndTime());
-         else
-            tsyslog("AppendEvents: last event: %s %u %s-%s %s", *channelID.ToString(), 0, "none", "none", "none");
+            cString LastDate = lastEvent ? DayDateTime(lastEvent->EndTime()) : "";
 #endif
-         for (int i = 0; i < eventCache.Size(); i++) {
-            cEvent *newEvent = eventCache.At(i);
-            if (newEvent->StartTime() >= lastEndTime)
-               schedule->AddEvent(newEvent);
+            int deleted = 0;
+            while (lastEvent && lastEvent->EventID() >= eventIDOffset) {
+               cEvent *prevEvent = (cEvent *)lastEvent->Prev();
+               schedule->DelEvent((cEvent *)lastEvent);
+               lastEvent = prevEvent;
+               deleted++;
+            }
+            time_t lastEndTime = lastEvent ? lastEvent->EndTime() : 0;
+#ifdef DBG_APPENDEVENTS
+            if (deleted)
+               tsyslog("AppendEvents: Channel ID: %s %2d %s - %s deleted", *channelID.ToString(), deleted, lastEvent?*DayDateTime(lastEvent->EndTime()):"Start", *LastDate);
+
+            if (lastEvent)
+               tsyslog("AppendEvents: last event: %s %u %s-%s %lu", *channelID.ToString(), lastEvent->EventID(), *DayDateTime(lastEvent->StartTime()), *TimeString(lastEvent->EndTime()), lastEvent->EndTime());
+            else
+               tsyslog("AppendEvents: last event: %s %u %s-%s %s", *channelID.ToString(), 0, "none", "none", "none");
+#endif
+            for (int i = 0; i < eventCache.Size(); i++) {
+               cEvent *newEvent = eventCache.At(i);
+               if (newEvent->StartTime() >= lastEndTime)
+                  schedule->AddEvent(newEvent);
+            }
+
+            schedule->Sort();
+            ++*totalSchedules;
+            *totalEvents += cnt;
+#ifdef DBG_APPENDEVENTS
+            isyslog("AppendEvents added %3d events to %s (%s)", cnt, *channelID.ToString(), *ChannelName);
+#endif
          }
-
-         schedule->SetModified();
-         ++*totalSchedules;
-         *totalEvents += cnt;
-#ifdef DBG_APPENDEVENTS
-         isyslog("AppendEvents added %3d events to %s (%s)", cnt, *channelID.ToString(), *ChannelName);
-#endif
       }
    }
 
@@ -1743,7 +1753,7 @@ bool cXMLTVDB::DropOutdated(cSchedule *Schedule, time_t SegmentStart, time_t Seg
       channelName = Channels->GetByChannelID(channelID)->Name();
    }
 
-#ifdef DBG_APPENDEVENTS
+#ifdef DBG_DROPEVENTS2
    tsyslog("DropOutdated1  %s - %s %2X-%02X %s %s", *DayTime(SegmentStart), *TimeHMS(SegmentEnd), TableID, Version, *Schedule->ChannelID().ToString(), *channelName);
 #endif
    cEvent *e = (cEvent *)Schedule->Events()->First();
@@ -1755,14 +1765,14 @@ bool cXMLTVDB::DropOutdated(cSchedule *Schedule, time_t SegmentStart, time_t Seg
    {  // if it's an xtEvent and is completely in segment => delete it because a corresponding DVB event exists
       if (!IS_DVB_EVENT(e)) {
          cEvent *n = (cEvent *)e->Next();
-#ifdef DBG_APPENDEVENTS
+#ifdef DBG_DROPEVENTS2
          tsyslog("  %s-%s %6d %2X-%02X DELETED %s~%s", *DayTime(e->StartTime()), *TimeHMS(e->EndTime()), e->EventID(), e->TableID(), e->Version(), e->Title(), e->ShortText());
 #endif
          Schedule->DelEvent((cEvent *)e);
          e = n;
       }
       else {
-#ifdef DBG_APPENDEVENTS
+#ifdef DBG_DROPEVENTS2
          tsyslog("  %s-%s %6d %2X-%02X %s~%s", *DayTime(e->StartTime()), *TimeHMS(e->EndTime()), e->EventID(), e->TableID(), e->Version(), e->Title(), e->ShortText());
 #endif
          lastEndTime = e->EndTime();
@@ -1774,7 +1784,7 @@ bool cXMLTVDB::DropOutdated(cSchedule *Schedule, time_t SegmentStart, time_t Seg
    if (dTime != 0 && e && !IS_DVB_EVENT(e) && (abs(dTime) < MAX_EVENT_DTIME)) {
       e->SetDuration(e->Duration() - dTime); //lastEndTime + e->StartTime());
       e->SetStartTime(lastEndTime);
-#ifdef DBG_APPENDEVENTS
+#ifdef DBG_DROPEVENTS2
       tsyslog("**%s-%s %6d %2X-%02X ADAPTED (%+d:%02u) %s~%s", *DayTime(e->StartTime()), *TimeHMS(e->EndTime()), e->EventID(), e->TableID(), e->Version(), dTime/60, abs(dTime)%60, e->Title(), e->ShortText());
 #endif
    }
