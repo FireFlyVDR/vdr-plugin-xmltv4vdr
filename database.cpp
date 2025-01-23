@@ -1571,7 +1571,7 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
    bool success = true;
    tEventID eventIDOffset = ((Flags & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS == ONLY_EXT_EVENTS) ? 0 : EXTERNAL_EVENT_OFFSET;
    const cEvent *lastEvent = NULL;
-   cString ChannelName = GetChannelName(channelID);
+   cString channelName = GetChannelName(channelID);
 
    // get last Event of DVB schedule (or NULL if only external)
    cStateKey SchedulesStateKey;
@@ -1588,6 +1588,8 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
             lastEvent = prevEvent;
          }
       }
+      else
+         esyslog("AppendEvents: Couldn't get or create schedule for %s", *channelName);
    }
    SchedulesStateKey.Remove(false);
 
@@ -1659,14 +1661,15 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
    success = CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
    sqlite3_finalize(stmt);
 
-   if (success & cnt > 0) {
+   if (success & cnt > 0)
+   {
       {
          LOCK_CHANNELS_WRITE;
          LOCK_SCHEDULES_WRITE;
          const cChannel *channel = Channels->GetByChannelID(channelID);
          const cSchedule *schedule = Schedules->GetSchedule(channel, true);
          if (!schedule || (lastEvent != NULL && !schedule->Events()->Contains(lastEvent))) {
-            esyslog("Failed to get schedule or event for %s (%s) %08X", *ChannelName, *channelID.ToString(), schedule);
+            esyslog("Failed to get schedule or event for %s (%s) %08X", *channelName, *channelID.ToString(), schedule);
             success = false;
          }
       }
@@ -1675,7 +1678,7 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
          LOCK_SCHEDULES_WRITE;
          cSchedule *schedule = (cSchedule *)Schedules->GetSchedule(channelID);
          if (!schedule) {  // this should never fail but who knows ....
-            esyslog("Failed to get schedule for %s (%s) %08X", *ChannelName, *channelID.ToString(), schedule);
+            esyslog("Failed to get schedule for %s (%s) %08X", *channelName, *channelID.ToString(), schedule);
             success = false;
          }
          else {
@@ -1683,6 +1686,7 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
             cString LastDate = lastEvent ? DayDateTime(lastEvent->EndTime()) : "";
 #endif
             int deleted = 0;
+            lastEvent = schedule->Events()->Last();
             while (lastEvent && lastEvent->EventID() >= eventIDOffset) {
                cEvent *prevEvent = (cEvent *)lastEvent->Prev();
                schedule->DelEvent((cEvent *)lastEvent);
@@ -1709,7 +1713,7 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
             ++*totalSchedules;
             *totalEvents += cnt;
 #ifdef DBG_APPENDEVENTS
-            isyslog("AppendEvents added %3d events to %s (%s)", cnt, *channelID.ToString(), *ChannelName);
+            isyslog("AppendEvents added %3d events to %s (%s)", cnt, *channelID.ToString(), *channelName);
 #endif
          }
       }
