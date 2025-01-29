@@ -456,8 +456,7 @@ bool cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sour
 
          if (!XMLTVConfig.EPGChannels()->IsActiveEPGChannel((const char *)channelid, *sourceName)) {
             epgChannel = NULL;
-            isyslogs(this,"found additional channelid %s", channelid);
-            lastError = PARSE_ADDITIONALCHANNELID;
+            isyslogs(this,"WARNING: found additional channelid %s", channelid);
             xmlFree(channelid);
             node = node->next;
             skipped++;
