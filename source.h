@@ -14,6 +14,7 @@
 
 #define TOKEN_DELIMITER '~'
 #define EVENT_LINGERTIME  (time(NULL) - Setup.EPGLinger * 60)
+#define MAX_EXEC_TIMES 12
 
 // --------------------------------------------------------------------------------------------------------
 class cEPGSource : public cListObject
@@ -30,8 +31,10 @@ private:
    bool hasPics;
    bool usePics;
    int daysInAdvance;
-   int exec_days;
-   int exec_time;
+   int execDays;
+   int numExecTimes;
+   int execTimes[MAX_EXEC_TIMES];
+   time_t nextExecTime;
    int maxDaysProvided;
    cStringList epgChannels;
    cString log;
@@ -45,21 +48,24 @@ private:
 public:
    cEPGSource(const char *Name);
    cEPGSource();
-   ~cEPGSource();
-   const char *SourceName()    { return *sourceName; }
+   ~cEPGSource() {};
+   const char *SourceName()    { return *sourceName; };
    bool Execute(void);
    bool ExecuteNow(time_t time);
-   time_t NextRunTime(time_t Now = (time_t)0);
+   time_t GetNextExecTime(time_t Now = 0, bool ForceCalculation = false);
    time_t LastSuccessfulRun()  { return lastSuccessfulRun; };
    void SetLastSuccessfulRun(time_t RunTime) { lastSuccessfulRun = RunTime; };
    const char * GetLog()       { return *log; }
    bool Enabled()              { return enabled; }
    void Enable(bool Enable )   { enabled = Enable; }
    const cStringList *EpgChannelList() const { return &epgChannels; }
-   int ExecTime()              { return exec_time; }
-   void SetExecTime(int Time)  { exec_time = Time; }
-   int ExecDays()              { return exec_days; }
-   void SetExecDays(int Days)  { exec_days = Days; }
+   cString GetExecTimesString(void);
+   const int *GetExecTimes(int *NumExecTimes) { *NumExecTimes = numExecTimes; return execTimes; }
+   void SetExecTime(int Time)  { execTimes[0] = Time; }  // deprecated
+   void SetExecTimes(int numTimes, int *Times);
+   void ParseExecTimes(const char *ExecTimeString);
+   int ExecDays()              { return execDays; }
+   void SetExecDays(int Days)  { execDays = Days; }
    int MaxDaysProvided()       { return maxDaysProvided; }
    int DaysInAdvance()         { return daysInAdvance; }
    void SetDaysInAdvance(int NewDaysInAdvance)  { daysInAdvance = NewDaysInAdvance; }

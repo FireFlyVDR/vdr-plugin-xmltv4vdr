@@ -10,7 +10,7 @@
 #include "debug.h"
 
 #define CHNUMWIDTH (numdigits(cChannels::MaxNumber())+1)
-#define NEWTITLE(x) new cOsdItem(cString::sprintf("%s%s%s", "---- ", x, " ----"), osUnknown, false)
+#define NEWTITLE(x) new cOsdItem(cString::sprintf("---- %s ----", x), osUnknown, false)
 
 // ----------------- menu setup field sequence
 class cMenuSetupDescriptionFieldSequence : public cMenuSetupPage
@@ -35,9 +35,12 @@ protected:
    virtual void Store(void);
 private:
    cEPGSource *epgSrc;
-   int *sel;
-   time_t day;
-   int execDays, execTime;
+   static int days[];
+   cStringList dayStrings;
+   char *execDays;
+   cString oldExecDays;
+   int numExecTimes, oldNumExecTimes;
+   int execTimes[MAX_EXEC_TIMES];
    int daysInAdvance;
    int enabled;
    int usePics;
@@ -50,6 +53,7 @@ public:
    virtual eOSState ProcessKey(eKeys Key);
    void SetHelpKeys(void);
 };
+int cMenuSetupSource::days[] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x1F, 0x3F, 0x7F, 0x60 };
 
 // ----------------- menu channel mapping between EPG source and VDR
 class cMenuSetupMapping : public cMenuSetupPage
@@ -59,7 +63,7 @@ protected:
 private:
    cEPGChannel *tmpEpgChannel;
    bool hasMappedChannels;
-   uint64_t flags;
+   uint64_t flags, oldAppendMode, oldCredits, oldPatentalRating, oldSeasonEpisode;
 #define MAX_MOVIESSERIES 5
    const char *optionsExtEvents[3];
    const char *optionsMovieSeries[MAX_MOVIESSERIES];
@@ -67,11 +71,11 @@ private:
    const char *optionsYesNo[2];
    cString title;
    int lineMap, lineOpts;
-   int c1, c2, c3, c4, c5;
    cOsdItem *option(const char *s, bool yesno);
    void Set(void);
    int sourceIndex;
    cStringList sourcesList;
+   cVector<cEPGSource*> sources;
    void Store(cEPGChannel *NewEpgChannel, bool replaceChannel = true);
 public:
    cMenuSetupMapping(const char *EpgChannelName);
@@ -126,13 +130,13 @@ protected:
    uint shift;
    const char * const *strings;
    uint64_t index;
-protected:
+
    virtual void Set() {
       SetValue(strings[index]);
       *value = (*value & ~mask) | (index << shift);
    }
 public:
-   cMenuEditMultiBitItem(const char *Name, uint64_t *Value, uint64_t Mask, uint Shift, int NumStrings, const char * const *Strings)
+   cMenuEditMultiBitItem(const char *Name, uint64_t *Value, const uint64_t Mask, const uint Shift, const int NumStrings, const char * const *Strings)
    :cMenuEditIntItem(Name, (int *)&index, 0, NumStrings - 1)
    {
       strings = Strings;
@@ -282,12 +286,6 @@ eOSState cMenuSetupXmltv4vdr::ProcessKey(eKeys Key)
 
                   if ((Current() >= mappingBegin) && (Current() <= mappingEnd)) {
                      cString epgchannel = channelStringList.At(Current() - mappingBegin);
-#ifdef DEBUG
-                     if (isempty(*epgchannel))
-                        tsyslog("AddSubMenu %s ", "empty");
-                     else
-                        tsyslog("AddSubMenu #%s# ", *epgchannel);
-#endif
                      return AddSubMenu(new cMenuSetupMapping(channelStringList.At(Current() - mappingBegin)));
                   }
                   Store();
@@ -443,45 +441,52 @@ void cMenuSetupDescriptionFieldSequence::Store(void)
    XMLTVConfig.Save();
 }
 
-
 // --------------------------------------------------------------------------------------------------------
 // sub-menu for each EPG source (main menu blue button (edit)) to select execution, pic download and en/disable each channel)
 cMenuSetupSource::cMenuSetupSource(cEPGSource *EpgSrc)
 {
    cPlugin *plugin = cPluginManager::GetPlugin(PLUGIN_NAME_I18N);
-   if (!plugin) return;
-   if (!EpgSrc) return;
+   if (!plugin || !EpgSrc) return;
    epgSrc = EpgSrc;
-
-   sel = NULL;
-
-   day = 0;
    pin[0] = 0;
+
+   time_t day = 0;
+   dayStrings.Clear();
+   for (uint i = 0; i < sizeof(days)/sizeof(int); i++) {
+      dayStrings.Append(strdup(cTimer::PrintDay(day, days[i], false)));
+   }
+   oldExecDays = execDays = strdup(cTimer::PrintDay(day, epgSrc->ExecDays(), false));
+   tsyslog("execDays: %02X %s", epgSrc->ExecDays(), execDays, false);
 
    SetPlugin(plugin);
    SetSection(cString::sprintf("%s '%s' : %s", trVDR("Plugin"), plugin->Name(), epgSrc->SourceName()));
 
    enabled = epgSrc->Enabled() ? 1 : 0;
    usePics = epgSrc->UsePics();
-   execDays = epgSrc->ExecDays();
-   execTime = epgSrc->ExecTime();
+   const int *srcExecTimes = epgSrc->GetExecTimes(&numExecTimes);
+   oldNumExecTimes = numExecTimes;
+
+   for (int i = 0; i < MAX_EXEC_TIMES; i++)
+      execTimes[i] = i < numExecTimes ? srcExecTimes[i] : 0;
    daysInAdvance = epgSrc->DaysInAdvance();
    Set();
 }
 
 cMenuSetupSource::~cMenuSetupSource()
 {
-   if (sel) delete [] sel;
+   free(execDays);
 }
 
 void cMenuSetupSource::Set(void)
 {
-    int current = Current();
-    Clear();
-
+   int current = Current();
+   Clear();
    Add(new cMenuEditBoolItem(tr("enabled"), &enabled));
-   Add(new cMenuEditDateItem(tr("update on"), &day, &execDays));
-   Add(new cMenuEditTimeItem(tr("update at"), &execTime));
+   Add(new cMenuEditStrlItem(tr("update on"), execDays, sizeof(execDays), &dayStrings));
+   Add(new cMenuEditIntItem(tr("number of executions per day"), &numExecTimes, 1, MAX_EXEC_TIMES));
+   for (int i = 0; i < numExecTimes; i++) {
+      Add(new cMenuEditTimeItem(tr("update at"), &execTimes[i]));
+   }
    Add(new cMenuEditIntItem(tr("days in advance"), &daysInAdvance, 1, epgSrc->MaxDaysProvided()));
 
    if (epgSrc->NeedPin())
@@ -513,7 +518,7 @@ eOSState cMenuSetupSource::ProcessKey(eKeys Key)
 {
    eOSState state = cOsdMenu::ProcessKey(Key);
 
-   if (state == osUnknown) 
+   if (Key != kNone)
    {
       switch (Key)
       {
@@ -534,21 +539,42 @@ eOSState cMenuSetupSource::ProcessKey(eKeys Key)
             break;
 
          default:
+            bool doSetup = false;
+            if (oldNumExecTimes != numExecTimes)
+            {
+               oldNumExecTimes = numExecTimes;
+               doSetup = true;
+            }
+            if (state == osContinue && strcmp(*oldExecDays, execDays))
+            {
+               oldExecDays = execDays;
+               doSetup = true;
+            }
+            if (doSetup) {
+               Set();
+            }
             break;
       }
    }
 
-   if (Key != kNone)
-      SetHelpKeys();
-
    return state;
+}
+
+int cmpints(const void* A, const void* B)
+{
+    int a = *(const int*)A;
+    int b = *(const int*)B;
+    return (a > b) - (a < b);
 }
 
 void cMenuSetupSource::Store(void)
 {
-   epgSrc->SetExecTime(execTime);
-   epgSrc->SetExecDays(execDays);
-
+   time_t day;
+   int weekdays;
+   epgSrc->SetExecDays(cTimer::ParseDay(execDays, day, weekdays) ? weekdays : 0x6F);
+   qsort(execTimes, numExecTimes, sizeof(int), cmpints);
+   epgSrc->SetExecTimes(numExecTimes, execTimes);
+   epgSrc->GetNextExecTime(time(NULL), true);
    epgSrc->Enable(enabled == 1);
    epgSrc->SetDaysInAdvance(daysInAdvance);
    if (epgSrc->NeedPin())
@@ -569,7 +595,6 @@ cMenuSetupMapping::cMenuSetupMapping(const char *EpgChannelName)
 
    hasMappedChannels = false;
    tmpEpgChannel = NULL;
-   flags = 0;
    optionsExtEvents[0] = tr("only enrich DVB events");
    optionsExtEvents[1] = tr("append later ext. events");
    optionsExtEvents[2] = tr("use only ext. EPG events");
@@ -594,15 +619,20 @@ cMenuSetupMapping::cMenuSetupMapping(const char *EpgChannelName)
 
    SetTitle(*cString::sprintf("%s - %s '%s': %s", trVDR("Setup"), trVDR("Plugin"), plugin->Name(), tmpEpgChannel->EPGChannelName()));
 
-   flags = tmpEpgChannel->Flags();
-   c1 = c2 = c3 = c4 = c5 = 0;
+   flags             = tmpEpgChannel->Flags();
+   oldAppendMode     = flags & USE_APPEND_EXT_EVENTS;
+   oldCredits        = flags & USE_CREDITS;
+   oldPatentalRating = flags & USE_PARENTAL_RATING;
+   oldSeasonEpisode  = flags & USE_SEASON_EPISODE;
 
    // setup array of available sources
    sourceIndex = 0;
    int i = 0;
    sourcesList.Append(strdup(trVDR("none")));
+   sources.Append(NULL);
    for (cEPGSource *src = XMLTVConfig.EPGSources()->First(); src; src = XMLTVConfig.EPGSources()->Next(src)) {
       if (src->ProvidesChannel(tmpEpgChannel->EPGChannelName())) {
+         sources.Append(src);
          if (src->Enabled())
             sourcesList.Append(strdup(src->SourceName()));
          else
@@ -625,12 +655,10 @@ cMenuSetupMapping::~cMenuSetupMapping()
 void cMenuSetupMapping::Set(void)
 {
    int lineSrc, lineFirstMap, lineLastMap;
-
    int current = Current();
    Clear();
 
    hasMappedChannels = false;
-
    Add(new cMenuEditStraItem(tr("EPG source"), &sourceIndex, sourcesList.Size(), &sourcesList.At(0)));
 
    Add(NEWTITLE(tr("EPG source channel mappings")), true);
@@ -657,20 +685,23 @@ void cMenuSetupMapping::Set(void)
 
    Add(NEWTITLE(tr("EPG source channel options")), true);
    lineOpts = Current();
-
-   c1 = Current();
    Add(new cMenuEditMultiBitItem(tr("ext. EPG events"), &flags, USE_APPEND_EXT_EVENTS, SHIFT_APPEND_EXT_EVENTS, 3, optionsExtEvents), true);
-   Add(new cMenuEditMultiBitItem(tr("title"), &flags, USE_TITLE, SHIFT_TITLE, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   Add(new cMenuEditMultiBitItem(tr("short text"), &flags, USE_SHORTTEXT, SHIFT_SHORTTEXT, MAX_MOVIESSERIES, optionsMovieSeries),true);
-   Add(new cMenuEditMultiBitItem(tr("description"), &flags, USE_DESCRIPTION, SHIFT_DESCRIPTION, MAX_MOVIESSERIES, optionsMovieSeries),true);
-
+   if ((flags & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS < ONLY_EXT_EVENTS) {
+      Add(new cMenuEditMultiBitItem(tr("title"), &flags, USE_TITLE, SHIFT_TITLE, MAX_MOVIESSERIES, optionsMovieSeries), true);
+      Add(new cMenuEditMultiBitItem(tr("short text"), &flags, USE_SHORTTEXT, SHIFT_SHORTTEXT, MAX_MOVIESSERIES, optionsMovieSeries),true);
+      Add(new cMenuEditMultiBitItem(tr("description"), &flags, USE_DESCRIPTION, SHIFT_DESCRIPTION, MAX_MOVIESSERIES, optionsMovieSeries),true);
+   }
+   else {
+      Add(new cOsdItem(cString::sprintf("%s\t%s", tr("title"), tr("always")), osUnknown, false), true);
+      Add(new cOsdItem(cString::sprintf("%s\t%s", tr("short text"), tr("always")), osUnknown, false), true);
+      Add(new cOsdItem(cString::sprintf("%s\t%s", tr("description"), tr("always")), osUnknown, false), true);
+   }
    Add(new cMenuEditMultiBitItem(tr("country and date"), &flags, USE_COUNTRYYEAR, SHIFT_COUNTRYYEAR, MAX_MOVIESSERIES, optionsMovieSeries), true);
 
    Add(new cMenuEditMultiBitItem(tr("original title"), &flags, USE_ORIGTITLE, SHIFT_ORIGTITLE, MAX_MOVIESSERIES, optionsMovieSeries), true);
    Add(new cMenuEditMultiBitItem(tr("category"), &flags, USE_CATEGORIES, SHIFT_CATEGORIES, MAX_MOVIESSERIES, optionsMovieSeries), true);
 
    Add(new cMenuEditMultiBitItem(tr("credits"), &flags, USE_CREDITS, SHIFT_CREDITS, MAX_MOVIESSERIES, optionsMovieSeries), true);
-   c2 = Current();
    if ((flags & USE_CREDITS) > 0)
    {
       // TRANSLATORS: note the leading blank!
@@ -681,9 +712,7 @@ void cMenuSetupMapping::Set(void)
       Add(new cMenuEditMultiBitItem(tr(" other crew"), &flags, CREDITS_OTHERS, SHIFT_CREDITS_OTHERS, 2, optionsYesNo), true);
    }
 
-   c3 = Current();
    Add(new cMenuEditMultiBitItem(tr("parental rating"), &flags, USE_PARENTAL_RATING, SHIFT_PARENTAL_RATING, 2, optionsYesNo), true);
-   c4 = Current();
    if ((flags & USE_PARENTAL_RATING) > 0)
    {
       // TRANSLATORS: note the leading blank!
@@ -693,7 +722,6 @@ void cMenuSetupMapping::Set(void)
    Add(new cMenuEditMultiBitItem(tr("review"), &flags, USE_REVIEW, SHIFT_REVIEW, MAX_MOVIESSERIES, optionsMovieSeries), true);
    Add(new cMenuEditMultiBitItem(tr("season and episode"), &flags, USE_SEASON_EPISODE, SHIFT_SEASON_EPISODE, MAX_MOVIESSERIES, optionsMovieSeries), true);
 
-   c5 = Current();
    if ((flags & USE_SEASON_EPISODE) > 0)
    {
       // TRANSLATORS: note the leading blank!
@@ -738,7 +766,7 @@ eOSState cMenuSetupMapping::ProcessKey(eKeys Key)
       switch ((int)Key)
       {
          case kOk:
-            tmpEpgChannel->SetEpgSource(XMLTVConfig.EPGSources()->GetSource(sourcesList[sourceIndex]));
+            tmpEpgChannel->SetEpgSource(sources[sourceIndex]);
             Store();
             state = osBack;
             break;
@@ -803,7 +831,27 @@ eOSState cMenuSetupMapping::ProcessKey(eKeys Key)
    Display();
 
    if (!HasSubMenu() && Key != kNone) {
-      if ((Current() == c1) || (Current() == c2) || (Current() == c3) || (Current() == c4) || (Current() == c5)) Set();
+      bool doSetup = false;
+      if (state == osContinue) {
+         if (oldAppendMode != (flags & USE_APPEND_EXT_EVENTS)) {
+            oldAppendMode = flags & USE_APPEND_EXT_EVENTS;
+            doSetup = true;
+         }
+         if (oldCredits != (flags & USE_CREDITS)) {
+            oldCredits = flags & USE_CREDITS;
+            doSetup = true;
+         }
+         if (oldPatentalRating != (flags & USE_PARENTAL_RATING)) {
+            oldPatentalRating = flags & USE_PARENTAL_RATING;
+            doSetup = true;
+         }
+         if (oldSeasonEpisode != (flags & USE_SEASON_EPISODE)) {
+            oldSeasonEpisode = flags & USE_SEASON_EPISODE;
+            doSetup = true;
+         }
+      }
+      if (doSetup)
+         Set();
       SetHelpKeys();
    }
 
@@ -814,6 +862,9 @@ eOSState cMenuSetupMapping::ProcessKey(eKeys Key)
 void cMenuSetupMapping::Store()  // required by inherited class cMenuSetupPage
 {
    cEPGChannel *epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel(tmpEpgChannel->EPGChannelName());
+   // set flags for title, shorttext and description to always in case of only-external-events
+   if ((flags & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS == ONLY_EXT_EVENTS)
+      flags = (flags & ~(USE_TITLE | USE_SHORTTEXT | USE_DESCRIPTION)) | USE_ALWAYS << SHIFT_TITLE | USE_ALWAYS << SHIFT_SHORTTEXT  | USE_ALWAYS << SHIFT_DESCRIPTION;
    tmpEpgChannel->SetFlags(flags);
    if (!epgChannel) {  // create new mapping
       XMLTVConfig.EPGChannels()->Add(new cEPGChannel(tmpEpgChannel));
@@ -1001,7 +1052,7 @@ void cMenuSetupLog::Set(void)
    cString text;
    int current = Current();
    Clear();
-   time_t nextrun = source->NextRunTime();
+   time_t nextrun = source->GetNextExecTime();
    if (nextrun)
    {
       struct tm tm;

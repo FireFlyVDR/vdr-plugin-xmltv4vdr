@@ -291,15 +291,15 @@ cString cPluginXmltv4vdr::Active(void)
 
 time_t cPluginXmltv4vdr::WakeupTime(void)
 {  // Return custom wakeup time for shutdown script
-   time_t nextruntime = 0;
+   time_t wakeuptime = 0;
    if (XMLTVConfig.WakeUp())
    {
-      nextruntime = XMLTVConfig.EPGSources()->NextRunTime();
-      if (nextruntime) 
-         nextruntime -= (time_t) 180;
-      tsyslog("reporting wakeuptime %s", ctime(&nextruntime));
+      wakeuptime = XMLTVConfig.EPGSources()->NextRunTime();
+      if (wakeuptime)
+         wakeuptime -= (time_t) 180;  // 180s = 3 min
+      tsyslog("reporting wakeuptime %s", ctime(&wakeuptime));
    }
-   return nextruntime;
+   return wakeuptime;
 }
 
 cMenuSetupPage *cPluginXmltv4vdr::SetupMenu(void)

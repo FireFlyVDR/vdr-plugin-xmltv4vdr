@@ -49,42 +49,94 @@ cEPGSource::cEPGSource(const char *SourceName)
    running = false;
    hasPics = usePics = false;
    daysInAdvance = 1;
-   exec_time = 10;
-   exec_days = 0x7f; // Mon->Sun
+   numExecTimes = 1;
+   execTimes[0] = 10;
+   execDays = 0x7f; // Mon->Sun
+   nextExecTime = 0;
    enabled = true;
    ready2parse = ReadConfig();
    dsyslogs(this, "is %sready2parse", ready2parse ? "" : "not ");
 }
 
-cEPGSource::~cEPGSource() { }
-
-time_t cEPGSource::NextRunTime(time_t CheckTime)
+cString cEPGSource::GetExecTimesString()
 {
+   char buffer[5 * MAX_EXEC_TIMES];
+   char *q = buffer;
+   *q = 0;
+   for (int i = 0; i < numExecTimes; i++) {
+      q += sprintf(q, "%s%02d%02d", i > 0 ? " ":"", execTimes[i]/100, execTimes[i]%100);
+   }
+
+   return buffer;
+}
+
+void cEPGSource::ParseExecTimes(const char *ExecTimeString)
+{
+   char *t;
+   numExecTimes = 0;
+   const char *p = ExecTimeString;
+   while (p && *p && numExecTimes < MAX_EXEC_TIMES) {
+      int n = strtol(p, &t, 10);
+      if (t != p)
+         execTimes[numExecTimes++] = n;
+      p = t;
+   }
+   GetNextExecTime(time(NULL), true);
+}
+
+
+void cEPGSource::SetExecTimes(int numTimes, int *Times)
+{
+   numExecTimes = numTimes < MAX_EXEC_TIMES ? numTimes : MAX_EXEC_TIMES;
+   for(int i = 0; i < numExecTimes; i++)
+   {
+      execTimes[i] = Times[i];
+   }
+   GetNextExecTime(time(NULL), true);
+}
+
+
+time_t cEPGSource::GetNextExecTime(time_t CheckTime, bool ForceCalculation)
+{  //  0: never
+   // >0: time_t exec time equal or greater than CheckTime
+
    time_t t = 0;
    if (enabled)
    {
-      time_t checkTime = CheckTime;
-      if (!checkTime) {
-         checkTime = time(NULL);
-         checkTime -= checkTime % 60;
+      time_t checkTime = CheckTime ? CheckTime : time(NULL);
+      checkTime -= checkTime % 60;  // round down to full minutes
+
+      t = nextExecTime;
+      if (t < checkTime || ForceCalculation) {
+         bool noMatch = true;
+         t = cTimer::SetTime(checkTime, 0);
+         while (t < checkTime || noMatch)
+         {
+            // find next exec day
+            while ((execDays & (1 << cTimer::GetWDay(t))) == 0)
+               t = cTimer::IncDay(t, 1);
+            int i = 0;
+            t = cTimer::SetTime(t, cTimer::TimeToInt(execTimes[i]));
+            // find first time >= checkTime
+            while (t < checkTime && ++i < numExecTimes) {
+               t = cTimer::SetTime(checkTime, cTimer::TimeToInt(execTimes[i]));
+            }
+            if ((noMatch = t < checkTime)) {
+               t = cTimer::IncDay(t, 1);
+               t = cTimer::SetTime(t, 0);
+            }
+         }
       }
-
-      t = cTimer::SetTime(checkTime, cTimer::TimeToInt(exec_time));
-
-      while ((exec_days & (1 << cTimer::GetWDay(t))) == 0)
-         t = cTimer::IncDay(t, 1);
-
-      if (t < checkTime)
-         t = cTimer::IncDay(t, 1);
    }
-   return t;
+   nextExecTime = t;
+   return nextExecTime;
 }
 
-bool cEPGSource::ExecuteNow(time_t time)
+bool cEPGSource::ExecuteNow(time_t StartTime)
 {
    if (enabled) {
-      time_t nextRunTime = NextRunTime(time);
-      if (nextRunTime > 0 && time == nextRunTime)
+      time_t nextRunTime = GetNextExecTime(StartTime);
+      if (nextRunTime > 0 && StartTime == nextRunTime)
          return (XMLTVConfig.EPGChannels()->HasActiveEPGChannels(sourceName));
    }
    return false;
@@ -144,7 +196,7 @@ bool cEPGSource::ReadConfig(void)
                   hr++;
                   if (hr>23) hr = 0;
                }
-               exec_time = (hr*100) + min;
+               execTimes[0] = (hr*100) + min;
             }
             else {
                esyslogs(this, "parsing line 1 failed: %s", line);
@@ -962,10 +1014,10 @@ void cEPGSources::RemoveAll()
       Del(source);
 }
 
-bool cEPGSources::ExecuteNow(time_t time)
+bool cEPGSources::ExecuteNow(time_t StartTime)
 {  // return true if any Source needs to be executed
    for (cEPGSource *source = First(); source; source = Next(source)) {
-      if (source->ExecuteNow(time)) return true;
+      if (source->ExecuteNow(StartTime)) return true;
    }
 
    return false;
@@ -977,7 +1029,7 @@ time_t cEPGSources::NextRunTime()
 
    for (cEPGSource *source = First(); source; source = Next(source))
    {
-      time_t srcNext = source->NextRunTime();
+      time_t srcNext = source->GetNextExecTime();
       if (srcNext > 0 && (nextRunTime == 0 || srcNext < nextRunTime))
       {
          nextRunTime = srcNext;

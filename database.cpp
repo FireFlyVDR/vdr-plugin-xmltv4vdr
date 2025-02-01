@@ -1570,6 +1570,7 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
 {
    bool success = true;
    tEventID eventIDOffset = ((Flags & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS == ONLY_EXT_EVENTS) ? 0 : EXTERNAL_EVENT_OFFSET;
+   Flags = (Flags & ~(USE_TITLE | USE_SHORTTEXT | USE_DESCRIPTION)) | USE_ALWAYS << SHIFT_TITLE | USE_ALWAYS << SHIFT_SHORTTEXT  | USE_ALWAYS << SHIFT_DESCRIPTION;
    const cEvent *lastEvent = NULL;
    cString channelName = GetChannelName(channelID);
 
@@ -1623,21 +1624,22 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
          newEvent->SetVersion(0xFF);
          nextStartTime = xtEvent->StartTime();
          int nextDuration = xtEvent->Duration();
+         int deltaT = 0;
          if (lastEndTime && lastEndTime > xtEvent->StartTime())
          {  // avoid overlapping events by shortening next event
-            tsyslog("AppendEvents adapt: %s E:%s S:%s %u", *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime), nextDuration/60);
+            deltaT = nextStartTime - lastEndTime;
             nextStartTime = lastEndTime;
             nextDuration -= lastEndTime - xtEvent->StartTime() - 60;
             nextDuration -= nextDuration % 60; // round down to full minutes
          }
          if (nextDuration > xtEvent->Duration() - 300) {  // not more than 5 min delta
+#ifdef DBG_APPENDEVENTS
             if (cnt < 4)
-               tsyslog("AppendEvents %d add: %s End:%s Start:%s Dur:%u", cnt, *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime), nextDuration/60);
+               tsyslog("AppendEvents %d add: %s End:%s Start:%s%s Dur:%u", cnt, *channelID.ToString(), *DayDateTime(lastEndTime), *DayDateTime(nextStartTime),
+                       deltaT ? *cString::sprintf(" (%+02d)", deltaT/60) : "", nextDuration/60);
+#endif
             newEvent->SetStartTime(nextStartTime);
             newEvent->SetDuration(nextDuration);
-            newEvent->SetTitle(xtEvent->Title());
-            newEvent->SetShortText(xtEvent->ShortText());
-            newEvent->SetDescription(xtEvent->Description());
             xtEvent->FillEventFromXTEvent(newEvent, Flags);
             eventCache.Append(newEvent);
             lastEndTime = xtEvent->StartTime() + xtEvent->Duration();

@@ -179,7 +179,10 @@ cConfigLine *cXMLTVConfig::Get(const char *Name, const char *Extension, const ch
 
 bool cXMLTVConfig::Parse(const char *Name, const char *Extension, const char *Value, const char *Section)
 {
-   if (!strcmp(Section, "options")) {
+   if (!strcmp(Section, "channel")) {
+      epgChannels->Add(new cEPGChannel(Name, Value));
+   }
+   else if (!strcmp(Section, "options")) {
       if (!strcasecmp(Name,"wakeup")) {
          wakeup = atoi(Value) == 1;
       }
@@ -196,15 +199,13 @@ bool cXMLTVConfig::Parse(const char *Name, const char *Extension, const char *Va
          if      (!strcasecmp(Name, "daysInAdvance"))      src->SetDaysInAdvance(atoi(Value));
          else if (!strcasecmp(Name, "usePics"))            src->SetUsePics(atoi(Value) == 1);
          else if (!strcasecmp(Name, "execDays"))           src->SetExecDays(atoi(Value));
-         else if (!strcasecmp(Name, "execTime"))           src->SetExecTime(atoi(Value));
+         else if (!strcasecmp(Name, "execTime"))           src->SetExecTime(atoi(Value)); // deprecated
+         else if (!strcasecmp(Name, "execTimes"))          src->ParseExecTimes(Value);
          else if (!strcasecmp(Name, "enabled"))            src->Enable(atoi(Value) == 1);
          else if (!strcasecmp(Name, "Pin"))                src->SetPin(Value);
          else if (!strcasecmp(Name, "lastEventStarttime")) src->SetLastEventStarttime(atoi(Value));
          else if (!strcasecmp(Name, "lastSuccessfulRun"))  src->SetLastSuccessfulRun(atoi(Value));
       }
-   }
-   else if (!strcmp(Section, "channel")) {
-      epgChannels->Add(new cEPGChannel(Name, Value));
    }
 
    return true;
@@ -244,7 +245,8 @@ void cXMLTVConfig::StoreSourceParameter(cEPGSource *Source)
       Store("daysInAdvance", Source->SourceName(), cString::sprintf("%d", Source->DaysInAdvance()), "source");
       Store("usePics",       Source->SourceName(), Source->UsePics() ? "1" : "0", "source");
       Store("execDays",      Source->SourceName(), cString::sprintf("%d", Source->ExecDays()), "source");
-      Store("execTime",      Source->SourceName(), cString::sprintf("%d", Source->ExecTime()), "source");
+      Store("execTime",      Source->SourceName(), NULL, "source");     // deprecated, delete entry
+      Store("execTimes",     Source->SourceName(), Source->GetExecTimesString(), "source");
       Store("enabled",       Source->SourceName(), cString::sprintf("%d", Source->Enabled()), "source");
       if (Source->Pin())
          Store("Pin",        Source->SourceName(), Source->Pin(), "source");

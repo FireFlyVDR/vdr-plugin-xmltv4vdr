@@ -339,7 +339,7 @@ void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
          if (evaluateFlags(USE_FLAGS(TITLE), isMovie, isSeries)) {
             if (!isempty(*title)) {
                if (!Event->Title() || strcmp(Event->Title(), *title)) {  // VDR Title empty
-                  tsyslog("changing Title from \"%s\" to \"%s\"", Event->Title(), *title);
+                  if (Event->Title()) tsyslog("changing Title from \"%s\" to \"%s\"", Event->Title(), *title);
                   Event->SetTitle(*title);
                }
             }
@@ -353,7 +353,7 @@ void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
                }
                else {
                   if (!Event->ShortText() || strcmp(Event->ShortText(), *shortText)) {
-                     tsyslog("changing Shorttext2 from \"%s\" to \"%s\"", Event->ShortText(), *shortText);
+                     if (Event->ShortText()) tsyslog("changing Shorttext2 from \"%s\" to \"%s\"", Event->ShortText(), *shortText);
                      Event->SetShortText(*shortText);
                   }
                }
