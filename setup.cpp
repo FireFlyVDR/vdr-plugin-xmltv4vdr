@@ -456,7 +456,6 @@ cMenuSetupSource::cMenuSetupSource(cEPGSource *EpgSrc)
       dayStrings.Append(strdup(cTimer::PrintDay(day, days[i], false)));
    }
    oldExecDays = execDays = strdup(cTimer::PrintDay(day, epgSrc->ExecDays(), false));
-   tsyslog("execDays: %02X %s", epgSrc->ExecDays(), execDays, false);
 
    SetPlugin(plugin);
    SetSection(cString::sprintf("%s '%s' : %s", trVDR("Plugin"), plugin->Name(), epgSrc->SourceName()));

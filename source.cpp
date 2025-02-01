@@ -1119,7 +1119,7 @@ void cEPGSources::Action()
       if (manualStart || timerStart)
       {
          isImporting = true;
-         tsyslog("cEPGSources::Action Start: %s", manualStart?"manualStart":"timerStart");
+         isyslog("Starting Import (%s start)", manualStart?"manual":"timer controlled");
          cVector<cEPGSource *> sourceList;
 
          cEPGSearch_Client epgsearch;
@@ -1197,10 +1197,8 @@ void cEPGSources::Action()
 
          isImporting = false;
          mtxImport.Unlock();
-
-         tsyslog("cEPGSources::Action End");
+         isyslog("Import finished");
       }
-      //tsyslog("cEPGSources::Action LoopEnd");
       delay = time(NULL) - starttime;
       if (delay > 0 && delay < 60 && Running())
       {  // avoid multiple timer calls
