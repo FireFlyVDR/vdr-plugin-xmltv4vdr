@@ -472,10 +472,10 @@ void logger(cEPGSource *source, char logtype, const char* format, ...)
          if (SysLogLevel > 0) syslog_with_tid(LOG_ERR, "xmltv4vdr: %sERROR %s", *sourceName, line);
          break;
       case 'I':
-         if (SysLogLevel > 1) syslog_with_tid(LOG_ERR, "xmltv4vdr: %s%s", *sourceName, line);
+         if (SysLogLevel > 1) syslog_with_tid(LOG_INFO, "xmltv4vdr: %s%s", *sourceName, line);
          break;
       case 'D':
-         if (SysLogLevel > 2) syslog_with_tid(LOG_ERR, "xmltv4vdr: %s%s", *sourceName, line);
+         if (SysLogLevel > 2) syslog_with_tid(LOG_DEBUG, "xmltv4vdr: %s%s", *sourceName, line);
          break;
       default:
          break;
