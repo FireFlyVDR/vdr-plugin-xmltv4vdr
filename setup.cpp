@@ -552,6 +552,8 @@ eOSState cMenuSetupSource::ProcessKey(eKeys Key)
             if (doSetup) {
                Set();
             }
+            else
+               SetHelpKeys();
             break;
       }
    }
