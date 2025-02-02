@@ -25,5 +25,17 @@ NOTE: This version introduces a new database scheme and therefore an
 2025-01-11: Version 0.4.6-Beta
 - fixed compiling under Debian (reported by dile @VDRportal)
 - fixed importing in empty schedule
-- fixed responisveness during import of events into VDR (reported by dile @VDRportal)
+- fixed responsiveness during import of events into VDR (reported by dile @VDRportal)
 - refactored XMLTV import to improve robustness especially if unrequested channels are found (reported by dile and Paulaner @VDRportal)
+
+2025-02-02: Version 0.4.7
+- fixed sometimes unrecognized schedules after import while they were available after a restart  (reported by dile @VDRportal)
+- fixed replacing events during import when using only external events (reported by Paulaner @VDRportal)
+- make additional (non-requested) channels in XMLTV file a warning instead of an error (reported by Paulaner @VDRportal)
+- refactored time controlled import to allow up to 12 imports per day
+- auto-select title, shorttext and description for appended events
+- fixed syslog loglevel (reported by dile @VDRportal)
+- changed some log messages
+- use Shorttext if available to recognize films
+- fixed memory leak during import (reported by dile @VDRportal)
+- simplified sorting of start times in setup
