@@ -561,19 +561,12 @@ eOSState cMenuSetupSource::ProcessKey(eKeys Key)
    return state;
 }
 
-int cmpints(const void* A, const void* B)
-{
-    int a = *(const int*)A;
-    int b = *(const int*)B;
-    return (a > b) - (a < b);
-}
-
 void cMenuSetupSource::Store(void)
 {
    time_t day;
    int weekdays;
    epgSrc->SetExecDays(cTimer::ParseDay(execDays, day, weekdays) ? weekdays : 0x6F);
-   qsort(execTimes, numExecTimes, sizeof(int), cmpints);
+   qsort(execTimes, numExecTimes, sizeof(int), CompareInts);
    epgSrc->SetExecTimes(numExecTimes, execTimes);
    epgSrc->GetNextExecTime(time(NULL), true);
    epgSrc->Enable(enabled == 1);
