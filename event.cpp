@@ -323,11 +323,14 @@ void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
          uint64_t flag = 0;
 
          bool isMovie = false;
-         for (int i = 0; !isMovie && i < MaxEventContents; i++) {   //TODO check shorttext for "Spielfilm" etc.
+         for (int i = 0; !isMovie && i < MaxEventContents; i++) {
             isMovie |= (Event->Contents(i) & 0xF0) == ecgMovieDrama;
          }
          isMovie |= (category.Find("movie") >= 0);
-         isMovie = isMovie && (Event->Duration() > 59*60); // movies must last longer than 59min
+         if (!isMovie && !isempty(Event->ShortText())) {
+            isMovie |= strcasestr(Event->ShortText(), "film") != NULL;
+         }
+         isMovie = isMovie && (Event->Duration() > 56*60); // movies must last longer than 56 min
 
          bool isSeries = false;
          isSeries |= (category.Find("series") >= 0);
