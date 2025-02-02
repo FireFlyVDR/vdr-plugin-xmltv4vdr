@@ -254,7 +254,7 @@ cEpLists::cEpLists(const char *Host, const int Port)
    port = Port;
    sock = -1;
    length = BUFSIZ;
-   inBuffer = (char*)malloc(length);
+   inBuffer = MALLOC(char, length);
 }
 
 cEpLists::~cEpLists(void)

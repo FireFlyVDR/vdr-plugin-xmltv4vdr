@@ -237,7 +237,7 @@ bool cEPGSource::ReadConfig(void)
 }
 
 
-bool cEPGSource::ReadXMLTVfile(char *&xmltv_buffer, size_t &size)
+bool cEPGSource::ReadXMLTVfile(char **xmltv_buffer, size_t &size)
 {  // read xmltv file into memory buffer
    bool success = true;
    cString xmltv_file = cString::sprintf("%s/%s.xmltv", XMLTVConfig.EPGSourcesDir(), *sourceName);
@@ -261,8 +261,8 @@ bool cEPGSource::ReadXMLTVfile(char *&xmltv_buffer, size_t &size)
       else 
       {
          size = statbuf.st_size;
-         xmltv_buffer = (char *) malloc(size + 1);
-         if (!xmltv_buffer)
+         *xmltv_buffer = MALLOC(char,size + 1);
+         if (!*xmltv_buffer)
          {
             close(xmltv_fd);
             esyslogs(this, "out of memory while reading '%s'", *xmltv_file);
@@ -270,12 +270,12 @@ bool cEPGSource::ReadXMLTVfile(char *&xmltv_buffer, size_t &size)
          }
          else 
          {
-            if (read(xmltv_fd, xmltv_buffer, statbuf.st_size) != statbuf.st_size)
+            if (read(xmltv_fd, *xmltv_buffer, statbuf.st_size) != statbuf.st_size)
             {
                esyslogs(this, "failed to read '%s'", *xmltv_file);
                success = false;
-               free(xmltv_buffer);
-               xmltv_buffer = NULL;
+               free(*xmltv_buffer);
+               *xmltv_buffer = NULL;
             }
             close(xmltv_fd);
          }
@@ -342,7 +342,7 @@ bool cEPGSource::Execute(void)
       if (success)
       {
          if (!usePipe) // use file
-            success = ReadXMLTVfile(outBuffer, outBufferSize);  // read xmltv file into memory buffer
+            success = ReadXMLTVfile(&outBuffer, outBufferSize);  // read xmltv file into memory buffer
       }
       else 
       {
@@ -366,13 +366,15 @@ bool cEPGSource::Execute(void)
    {
       isyslogs(this, "successfully executed after %i %s", tries, tries == 1 ? "try" : "tries");
 
-      if (success && (outBuffer)) {
+      if (success && (*outBuffer)) {
          success = ParseAndImportXMLTV(outBuffer, outBufferSize, *sourceName);
          XMLTVConfig.StoreSourceParameter(this);  // save lastEventStartTime
          XMLTVConfig.Save();
       }
    }
 
+   free(outBuffer);
+   free(errBuffer);
    running = false;
    return success;
 }
@@ -414,7 +416,7 @@ bool cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sour
 {  // process the buffer with the XMLTV file in memory
    // add episode info
    // import event into DB for all mapped DVB channels
-   if (!buffer || !bufsize) return 134;
+   if (!buffer || !bufsize) return false;
 
    isyslogs(this, "parsing xmltv buffer (%.1f MB) and importing events into DB", bufsize/1024./1024.);
 

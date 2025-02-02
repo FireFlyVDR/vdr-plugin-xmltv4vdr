@@ -42,7 +42,7 @@ private:
    time_t lastSuccessfulRun;
    bool ReadConfig(void);
    time_t XmltvTime2UTC(char *xmltvtime);
-   bool ReadXMLTVfile(char *&xmltv_buffer, size_t &size);
+   bool ReadXMLTVfile(char **xmltv_buffer, size_t &size);
    bool ParseAndImportXMLTV(char *buffer, int bufsize, const char *SourceName);
    bool FillXTEventFromXmlNode(cXMLTVEvent *xtEvent, xmlNodePtr node);
 public:
