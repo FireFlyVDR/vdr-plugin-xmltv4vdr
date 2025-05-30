@@ -39,3 +39,8 @@ NOTE: This version introduces a new database scheme and therefore an
 - use Shorttext if available to recognize films
 - fixed memory leak during import (reported by dile @VDRportal)
 - simplified sorting of start times in setup
+
+2025-05-30: Version 0.4.8
+- changed type of ext. event ID from int to string (requires new XMLTV import after upgrading because of new scheme of EPG database)
+- fixed selection of director in credits
+- fixed removing 'none' channel in mapping setup menu
