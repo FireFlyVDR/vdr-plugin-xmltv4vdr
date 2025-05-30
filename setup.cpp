@@ -770,7 +770,7 @@ eOSState cMenuSetupMapping::ProcessKey(eKeys Key)
             break;
 
          case kRed:  // remove channel
-            if (Current() > lineMap && Current() < lineOpts) {
+            if (hasMappedChannels && Current() > lineMap && Current() < lineOpts) {
                item = Get(Current());
                if (item) {
                   if (tmpEpgChannel) {
