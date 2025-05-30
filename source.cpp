@@ -641,8 +641,8 @@ bool cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sour
          }
 
          // set xtEventID if empty
-         if (!xtEvent.XTEventID())
-            xtEvent.SetXTEventID(xtEvent.StartTime());
+         if (isempty(xtEvent.XTEventID()))
+            xtEvent.SetXTEventID(*cString::sprintf("%lx", xtEvent.StartTime()));
 
          // insert xtEvent in DB for all mapped channels
          if (xmlTVDB->ImportXMLTVEvent(&xtEvent, epgChannel->ChannelIDList()))
@@ -708,7 +708,7 @@ bool cEPGSource::FillXTEventFromXmlNode(cXMLTVEvent *xtEvent, xmlNodePtr enode)
          if (const xmlChar *pid = xmlStrstr(node->content, (const xmlChar *)"pid")) {
             char *eq = strchr((char *)pid, '=');
             if (eq) {
-               xtEvent->SetXTEventID((uint64_t)atoll(eq + 1));
+               xtEvent->SetXTEventID(skipspace(eq +1));
             }
          }
          if (const xmlChar *content = xmlStrstr(node->content, (const xmlChar *)"content")) {

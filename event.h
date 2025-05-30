@@ -32,7 +32,7 @@ class cXMLTVEvent
 private:
    cString sourceName;
    tChannelID channelID;
-   uint64_t xtEventID;
+   cString xtEventID;
    tEventID eventid;
    uchar tableID;
    uchar version;
@@ -90,10 +90,9 @@ public:
    void SetVersion(uchar Version) { version = Version; }
    uchar Version() const          { return version; }
 
-   void SetXTEventID(uint64_t XtEventID) { xtEventID = XtEventID; }
+   void SetXTEventID(const char *XtEventID) { xtEventID = XtEventID; }
    uint32_t GenerateEventID(time_t StartTime, uint32_t Offset = 0);
-   void SetXTEventIDFromTime(time_t StartTime);
-   uint64_t XTEventID(void) const  { return xtEventID; }
+   const char *XTEventID(void) const  { return xtEventID; }
 
    void SetDescription(const char *description = NULL);
    const char *Description(void) const { return *description; }

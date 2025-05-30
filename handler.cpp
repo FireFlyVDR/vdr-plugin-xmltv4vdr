@@ -71,7 +71,7 @@ bool cEpgHandlerXMLTV::BeginSegmentTransfer(const cChannel *Channel, bool Dummy)
             sourceLastEventStarttime = epgChannel->EPGSource()->LastEventStarttime();
             epgLingerTime = time(NULL) - Setup.EPGLinger * 60;
 #ifdef DBG_EPGHANDLER2
-            tsyslog("BEGIN_SEGMENT %s(%d) (%s) %s (%s)", __FILE__, __LINE__, *Channel->GetChannelID().ToString(), Channel->Name(), XMLTVConfig.EPGChannels()->HandledExternally(Channel->GetChannelID())?"ext":"int");
+            tsyslog("BEGIN_SEGMENT %s(%d) (%s) %s (%s)", __FILE__, __LINE__, *Channel->GetChannelID().ToString(), Channel->Name());
 #endif
             success = xmlTVDB->OpenDBConnection();
             if (success) {

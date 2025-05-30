@@ -301,6 +301,7 @@ bool cEpLists::Open()
    Addr.sin_port = htons(port);
    Addr.sin_addr.s_addr = serverAddr;
 
+   isyslog("Episodes DB: connecting to eplists server %s (%s:%d)", *host, addrstr, port);
    if (::connect(sock, (sockaddr *)&Addr, sizeof(Addr)) < 0 && errno != EINPROGRESS) {
       close(sock);
       LOG_ERROR;
@@ -535,7 +536,11 @@ bool cEpisodesDB::UpdateDBFromINet()
 {
    bool success = true;
    cEpLists *eplists = new cEpLists(XMLTVConfig.EpisodesServer(), XMLTVConfig.EpisodesServerPort());
-   if ((success = eplists->Open()))
+   if (!(success = eplists->Open()))
+   {
+      esyslog("Episodes DB: open failed, aborting episodes update");
+   }
+   else
    {
       //define time range of updates
       cString eplistQuery;
@@ -948,7 +953,7 @@ bool cEpisodesDB::QueryEpisode(cXMLTVEvent *xtEvent)
 // ================================ cXMLTVDB ==============================================
 #define TABLEVERSION_UNSEEN 0x7FFF
 #define DELETE_FLAG         0x8000
-#define XMLTVDB_SCHEMA_VERSION 22
+#define XMLTVDB_SCHEMA_VERSION 23
 #define TIMERANGE (2*60*59)  // nearly 2 hrs
 
 cXMLTVDB::~cXMLTVDB()
@@ -1014,7 +1019,7 @@ bool cXMLTVDB::CreateDB(void)
                         "starttime INT      NOT NULL, " //  1 PK
                         "eventid INT, "                 //  2 // EIT ID is 16 Bit but VDR stores 32Bit, so self-created IDs for new events can be > 0xFFFF
                         "tableversion INT, "            //  3
-                        "xteventid INT, "               //  4
+                        "xteventid TEXT, "              //  4
                         "src TEXT, "                    //  5
                         "title TEXT, "                  //  6
                         "shorttext TEXT, "              //  7
@@ -1166,7 +1171,7 @@ bool cXMLTVDB::ImportXMLTVEvent(cXMLTVEvent *xtEvent, const cChannelIDList &Chan
       sqlite3_bind_text (stmtImportXMLTVEventReplace, 11, *channelID, -1, SQLITE_STATIC);
       sqlite3_bind_int  (stmtImportXMLTVEventReplace, 12, xtEvent->StartTime());
       sqlite3_bind_int  (stmtImportXMLTVEventReplace, 13, dbEventID);
-      sqlite3_bind_int64(stmtImportXMLTVEventReplace, 14, xtEvent->XTEventID());
+      sqlite3_bind_text (stmtImportXMLTVEventReplace, 14, xtEvent->XTEventID(), -1, SQLITE_STATIC);
 
       sqlite3_bind_text (stmtImportXMLTVEventReplace, 21, xtEvent->SourceName(), -1, SQLITE_STATIC);
       sqlite3_bind_text (stmtImportXMLTVEventReplace, 22, xtEvent->Title(), -1, SQLITE_STATIC);
@@ -1193,7 +1198,7 @@ bool cXMLTVDB::ImportXMLTVEvent(cXMLTVEvent *xtEvent, const cChannelIDList &Chan
       int SQLrc = sqlite3_step(stmtImportXMLTVEventReplace);
       CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
       success = (SQLrc == SQLITE_DONE);
-      if(!success) esyslog("ImportXMLTVEvent Replace: RC=%d XTEventID=%lu %s %s %s", SQLrc, xtEvent->XTEventID(), xtEvent->SourceName(), *channelID, *Time2Str(xtEvent->StartTime()));
+      if(!success) esyslog("ImportXMLTVEvent Replace: RC=%d XTEventID=%s %s %s %s", SQLrc, xtEvent->XTEventID(), xtEvent->SourceName(), *channelID, *Time2Str(xtEvent->StartTime()));
 
       sqlite3_clear_bindings(stmtImportXMLTVEventReplace);
       sqlite3_reset(stmtImportXMLTVEventReplace);
@@ -1325,7 +1330,7 @@ cXMLTVEvent *cXMLTVDB::FillXMLTVEventFromDB(sqlite3_stmt *stmt)
             case  3: { uint tableVersion = sqlite3_column_int(stmt, col);
                        xtEvent->SetTableID((tableVersion >> 8) & 0x00FF);
                        xtEvent->SetVersion(tableVersion & 0x00FF); break; }
-            case  4: xtEvent->SetXTEventID((uint64_t)sqlite3_column_int64(stmt, col)); break;
+            case  4: xtEvent->SetXTEventID((const char *)sqlite3_column_text(stmt, col)); break;
 
             case  5: xtEvent->SetSourceName((const char *) sqlite3_column_text(stmt, col)); break;
             case  6: xtEvent->SetTitle((const char *) sqlite3_column_text(stmt, col)); break;
@@ -1618,8 +1623,9 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
       cXMLTVEvent *xtEvent = FillXMLTVEventFromDB(stmt);
       time_t nextStartTime;
       if (xtEvent) {
-         xtEvent->SetXTEventID(xtEvent->GenerateEventID(xtEvent->StartTime(), EXTERNAL_EVENT_OFFSET));
-         cEvent *newEvent = new cEvent(xtEvent->XTEventID());
+         tEventID newEventId = xtEvent->GenerateEventID(xtEvent->StartTime(), EXTERNAL_EVENT_OFFSET);   //TODO
+         xtEvent->SetEventID(newEventId);
+         cEvent *newEvent = new cEvent(newEventId);
          newEvent->SetTableID(0x6F);
          newEvent->SetVersion(0xFF);
          nextStartTime = xtEvent->StartTime();
@@ -1645,11 +1651,11 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
             lastEndTime = xtEvent->StartTime() + xtEvent->Duration();
 #ifdef DBG_APPENDEVENTS
             if (cnt < 4)
-               tsyslog("new event appended: %s %5u %s %s~%s", *channelID.ToString(), newEvent->EventID(),
+               tsyslog("new event appended: %s %5u (%s) %s %s~%s", *channelID.ToString(), newEvent->EventID(), xtEvent->XTEventID(),
                        *Time2Str(newEvent->StartTime()), newEvent->Title(), newEvent->ShortText());
 #endif
-            cString sqlUpdate = cString::sprintf("UPDATE epg SET eventid=%u, tableversion=0x6fff WHERE channelid='%s' AND starttime=%lu;",
-                                                 (uint32_t)xtEvent->XTEventID(), *channelID.ToString(), xtEvent->StartTime());
+            cString sqlUpdate = cString::sprintf("UPDATE epg SET eventid='%u', tableversion=0x6fff WHERE channelid='%s' AND starttime=%lu;",
+                                                 xtEvent->EventID(), *channelID.ToString(), xtEvent->StartTime());
             ExecDBQuery(*sqlUpdate);
             cnt++;
          }
@@ -1811,7 +1817,7 @@ bool cXMLTVDB::DropOutdated(cSchedule *Schedule, time_t SegmentStart, time_t Seg
    while (SQLrc == SQLITE_ROW)
    {  // fetch one row from DB
       tEventID eventID   = sqlite3_column_int(stmt, 0);
-      uint64_t xtEventID = (uint64_t)sqlite3_column_int64(stmt, 1);
+      cString xtEventID = (const char *)sqlite3_column_text(stmt, 1);
       uint tableversion   = sqlite3_column_int(stmt, 2);
       time_t starttime   = sqlite3_column_int(stmt, 3);
       int duration       = sqlite3_column_int(stmt, 4);
@@ -1869,13 +1875,13 @@ bool cXMLTVDB::DropEventList(int *LinksDeleted, int *EventsDeleted, const char *
       cString src, channelID;
       time_t startTime = 0;
       tEventID eventID = 0;
-      uint64_t xtEventID = 0;
+      cString xtEventID = NULL;
 
       src          = (const char *)sqlite3_column_text(stmt, 0);
       channelID    = (const char *)sqlite3_column_text(stmt, 1);
       startTime    = sqlite3_column_int(stmt, 2);
       eventID      = sqlite3_column_int(stmt, 3);
-      xtEventID    = sqlite3_column_int64(stmt, 4);
+      xtEventID    = (const char *)sqlite3_column_text(stmt, 4);
       cString pics = (const char *)sqlite3_column_text(stmt, 5);
       picList.SetStringList(pics);
 
@@ -1890,7 +1896,7 @@ bool cXMLTVDB::DropEventList(int *LinksDeleted, int *EventsDeleted, const char *
       cString sqlDelete = cString::sprintf("DELETE FROM epg WHERE channelid='%s' AND starttime=%lu;",
                                            *channelID, startTime);
 #ifdef DBG_DROPEVENTS
-      tsyslog("DropEvent: deleting from DB: %s %s_%d %lu", *src, *channelID, eventID, xtEventID);
+      tsyslog("DropEvent: deleting from DB: %s %s_%d %s", *src, *channelID, eventID, xtEventID);
 #endif
       ExecDBQuery(*sqlDelete);
       *EventsDeleted += sqlite3_changes(DBHandle);

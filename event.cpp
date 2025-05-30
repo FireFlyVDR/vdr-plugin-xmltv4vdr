@@ -83,7 +83,8 @@ void cXMLTVEvent::Clear()
    shortText = NULL;
    description = NULL;
    country = NULL;
-   xtEventID = eventid = 0;
+   xtEventID = NULL;
+   eventid = 0;
    year = 0;
    tableID = 0xFF;
    version = 0xFF;
@@ -138,15 +139,6 @@ uint32_t cXMLTVEvent::GenerateEventID(time_t StartTime, uint32_t Offset)
    newID |= (tm.tm_hour & 0x1F) << 6;
    newID |= (tm.tm_min & 0x3F);
    return newID | Offset;
-}
-
-void cXMLTVEvent::SetXTEventIDFromTime(time_t StartTime)
-{  /// create and set extEventID from start time
-   /// channel is not taken into account, only start time
-   /// but needs only to be uniqe per channel
-
-   if (!xtEventID)
-      xtEventID = GenerateEventID(StartTime);
 }
 
 void cXMLTVEvent::SetCountry(const char *Country)
