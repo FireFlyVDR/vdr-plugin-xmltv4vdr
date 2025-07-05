@@ -53,9 +53,10 @@ bool cXMLTVStringList::AppendUnique(const char* String)
 }
 
 int cXMLTVStringList::FindStr(const char *s) const
-{  // return position of string s if found, else -1
+{  // return index of string list if string s was found at beginning
+   // else return -1
    for (int i = 0; i < Size(); i++) {
-      if (strstr(s, At(i)))
+      if (strstr(At(i),s ) == At(i))
          return i;
       }
    return -1;
@@ -159,6 +160,18 @@ void cXMLTVEvent::AddCredits(const char *CreditType, const char *Credit, const c
    else
       credit = cString::sprintf("%s%c%s", CreditType, TOKEN_DELIMITER, Credit);
    credits.Append(strdup(compactspace((char*)*credit)));
+}
+
+void cXMLTVEvent::AppendCredits(const char *CreditType, const char *Credit)
+{
+   int pos = credits.FindStr(CreditType);
+
+   if (pos >= 0)
+      credits.At(pos) = strdup(compactspace((char *)*cString::sprintf("%s, %s", credits.At(pos), Credit)));
+   else {
+      cString credit = cString::sprintf("%s%c%s", CreditType, TOKEN_DELIMITER, Credit);
+      credits.Append(strdup(compactspace((char*)*credit)));
+   }
 }
 
 void cXMLTVEvent::SetCategories(const char *Categories)

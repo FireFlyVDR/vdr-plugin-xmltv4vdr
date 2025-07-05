@@ -102,6 +102,7 @@ public:
 
    void SetCredits(const char *Credits = NULL);
    void AddCredits(const char *CreditType, const char *Credit, const char *Addendum = NULL);
+   void AppendCredits(const char *CreditType, const char *Credit);
    const cXMLTVStringList *Credits() const { return &credits; }
 
    void SetCategories(const char *Categories = NULL);

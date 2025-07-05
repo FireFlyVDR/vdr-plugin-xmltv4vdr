@@ -773,7 +773,7 @@ bool cEPGSource::FillXTEventFromXmlNode(cXMLTVEvent *xtEvent, xmlNodePtr enode)
                      xmlChar *content = xmlNodeListGetString(vnode->doc, vnode->xmlChildrenNode, 1);
                      if (content) {
                         if (!isempty(stripspace((char *)content)))
-                           xtEvent->AddCredits((const char *)vnode->name, (const char *)content);
+                           xtEvent->AppendCredits((const char *)vnode->name, (const char *)content);
                         xmlFree(content);
                      }
                   }
