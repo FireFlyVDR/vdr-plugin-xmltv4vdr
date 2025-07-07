@@ -6,6 +6,7 @@
  */
 
 #include <inttypes.h>
+#include <stdlib.h>
 #include "maps.h"
 #include "debug.h"
 
@@ -52,7 +53,7 @@ cEPGChannel::cEPGChannel(const char *EPGChannelName, const char *Flags_and_Chann
                token++;
             }
             else if (token == 1) { // read flags
-               flags = strtoul(strg, NULL, 0);
+               flags = strtoull(strg, NULL, 0);
                token++;
             }
             else {  // channels
