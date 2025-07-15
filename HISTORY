@@ -44,3 +44,9 @@ NOTE: This version introduces a new database scheme and therefore an
 - changed type of ext. event ID from int to string (requires new XMLTV import after upgrading because of new scheme of EPG database)
 - fixed selection of director in credits
 - fixed removing 'none' channel in mapping setup menu
+
+2025-07-15: Version 0.4.9
+- merge multiple entries of directors, writers etc. into one entry for each
+- fixed reading flags on 32 bit systems
+- improve robustness of reading config file and handling channel IDs
+
