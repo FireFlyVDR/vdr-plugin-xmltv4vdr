@@ -48,8 +48,13 @@ cEPGChannel::cEPGChannel(const char *EPGChannelName, const char *Flags_and_Chann
          strg = strtok_r(flagsChannels, ";", &sp);
          while (strg) {
             if (token == 0) {  // source
-               if (cEPGSource *src = XMLTVConfig.EPGSources()->GetSource(strg))
-                  epgSource = src;
+               if (strcmp("NULL", strg)) {
+                  if (cEPGSource *src = XMLTVConfig.EPGSources()->GetSource(strg))
+                     epgSource = src;
+                  else {
+                     esyslog("Removing unknown EPG source '%s' in %s = %s", strg, EPGChannelName, Flags_and_Channels);
+                  }
+               }
                token++;
             }
             else if (token == 1) { // read flags
@@ -57,7 +62,14 @@ cEPGChannel::cEPGChannel(const char *EPGChannelName, const char *Flags_and_Chann
                token++;
             }
             else {  // channels
-               channelIDList.AppendUnique(new cChannelIDObject(strg));
+               const tChannelID channelID = tChannelID::FromString(strg);
+               if (!(channelID == tChannelID::InvalidID)) {
+                  LOCK_CHANNELS_READ
+                  if (Channels->GetByChannelID(channelID) == NULL)
+                     esyslog("Removing unknown channel ID '%s' in %s = %s", *channelID.ToString(), EPGChannelName, Flags_and_Channels);
+                  else
+                     channelIDList.AppendUnique(new cChannelIDObject(strg));
+               }
             }
             strg = strtok_r(NULL, ";", &sp);
          }

@@ -1172,10 +1172,20 @@ void cEPGSources::Action()
                      const char *epgChannelName = epgChannelList->At(i);
                      if (cEPGChannel *epgChannel = XMLTVConfig.EPGChannels()->GetEpgChannel(epgChannelName)) { // has epgChannel
                         if (epgChannel && epgChannel->EPGSource() && epgChannel->EPGSource()->SourceName() && !strcmp(epgChannel->EPGSource()->SourceName(), source->SourceName())) {
-                           if ((epgChannel->Flags() & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS >= APPEND_EXT_EVENTS) {
+                           if (((epgChannel->Flags() & USE_APPEND_EXT_EVENTS) >> SHIFT_APPEND_EXT_EVENTS) >= APPEND_EXT_EVENTS) {
                               for (int c = 0; c < epgChannel->ChannelIDList().Size(); c++) {
                                  tChannelID channelID = epgChannel->ChannelIDList().At(c)->GetChannelID();
-                                 success =  success && xmlTVDB->AppendEvents(channelID, epgChannel->Flags(), &totalSchedules, &totalEvents);
+                                 bool isKnownChannel = false;
+                                 {
+                                    LOCK_CHANNELS_READ
+                                    isKnownChannel = NULL != Channels->GetByChannelID(channelID);
+                                 }
+                                 if (isKnownChannel) {
+                                    isyslog("appending events from EPG channel %s to channelID %s", epgChannel->EPGChannelName(), *channelID.ToString());
+                                    success = success && xmlTVDB->AppendEvents(channelID, epgChannel->Flags(), &totalSchedules, &totalEvents);
+                                 }
+                                 else
+                                    esyslog("append events: channelID %s (EPG channel %s) not found in channel list, skipping", *channelID.ToString(), epgChannel->EPGChannelName());
                               }
                            }
                         }

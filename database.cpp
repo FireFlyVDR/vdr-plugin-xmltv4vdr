@@ -1395,7 +1395,7 @@ cString GetChannelName(tChannelID channelID)
 {
    LOCK_CHANNELS_READ
    const cChannel *channel = Channels->GetByChannelID(channelID);
-   return channel->Name();
+   return channel ? channel->Name() : "'unknown channel name'";
 }
 
 bool cXMLTVDB::UpdateEvent(cEvent *Event, uint64_t Flags) //, const char *ChannelName), time_t LastEventStarttime)
@@ -1675,10 +1675,14 @@ bool cXMLTVDB::AppendEvents(tChannelID channelID, uint64_t Flags, int *totalSche
          LOCK_CHANNELS_WRITE;
          LOCK_SCHEDULES_WRITE;
          const cChannel *channel = Channels->GetByChannelID(channelID);
-         const cSchedule *schedule = Schedules->GetSchedule(channel, true);
-         if (!schedule || (lastEvent != NULL && !schedule->Events()->Contains(lastEvent))) {
-            esyslog("Failed to get schedule or event for %s (%s) %08X", *channelName, *channelID.ToString(), schedule);
+         if (!channel)
             success = false;
+         else {
+            const cSchedule *schedule = Schedules->GetSchedule(channel, true);
+            if (!schedule || (lastEvent != NULL && !schedule->Events()->Contains(lastEvent))) {
+               esyslog("Failed to get schedule or event for %s (%s) %08X", *channelName, *channelID.ToString(), schedule);
+               success = false;
+            }
          }
       }
       if (success)
