@@ -898,18 +898,12 @@ bool cEPGSource::FillXTEventFromXmlNode(cXMLTVEvent *xtEvent, xmlNodePtr enode)
                         if (strlen(*xmltv_ns) > 1) {
                            cString before, middle, after;
                            if (3 == strsplit(*xmltv_ns, '.', before, middle, after)) {
-                              int season = atoi(*before);
-                              if (season > 0) {
-                                 xtEvent->SetSeason(++season);
-                              }
-                              int episode = atoi(*middle);
-                              if (episode > 0) {
-                                 xtEvent->SetEpisode(++episode);
-                              }
-                              int overall = atoi(*after);
-                              if (overall > 0) {
-                                 xtEvent->SetEpisodeOverall(++overall);
-                              }
+                              if (isdigit(**before))
+                                 xtEvent->SetSeason(1 + atoi(*before));
+                              if (isdigit(**middle))
+                                 xtEvent->SetEpisode(1 + atoi(*middle));
+                              if (isdigit(**after))
+                                 xtEvent->SetEpisodeOverall(1 + atoi(*after));
                            }
                         }
                      }
