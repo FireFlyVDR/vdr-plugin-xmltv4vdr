@@ -1101,12 +1101,12 @@ void cEPGSources::Action()
       bool timerStart = false;
       while (Running() && !(manualStart || (timerStart = ExecuteNow(starttime))))
       {  // give mtxImport back until condition is met, re-gain lock automatically
-         bool manual = cvBlock.TimedWait(mtxImport, 60000);
+         manualStart = cvBlock.TimedWait(mtxImport, 60000);
          starttime = time(NULL);
          starttime -= starttime%60;
       }
 
-      if (manualStart || timerStart)
+      if (Running() && (manualStart || timerStart))
       {
          isImporting = true;
          isyslog("Starting Import (%s start)", manualStart?"manual":"timer controlled");
