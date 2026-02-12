@@ -171,7 +171,6 @@ bool cEPGSource::ReadConfig(void)
    }
    else {
       dsyslogs(this,"reading source config %s", *srcConfig);
-      size_t linesize = 0;
       char *line = NULL;
       int lineNo = -1;
       cReadLine ReadLine;
@@ -466,7 +465,6 @@ bool cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sour
    int skipped = 0, outdated = 0, faulty = 0, imported = 0;
    int failed = 0;
    xmlChar *lastchannelid = NULL;
-   time_t lastStoptime = 0;
    cXMLTVEvent xtEvent;
    cEPGChannel *epgChannel = NULL;
 
@@ -527,7 +525,6 @@ bool cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sour
             skipped++;
             continue;
          }
-         lastStoptime = 0;
          lastError = PARSE_NOERROR;
          xmlTVDB->Transaction_Begin();
          xmlTVDB->MarkEventsOutdated(epgChannel->ChannelIDList()); // Mark all events of Channel as outdated;
@@ -614,7 +611,6 @@ bool cEPGSource::ParseAndImportXMLTV(char *buffer, int bufsize, const char *Sour
                continue;
             }
             xtEvent.SetDuration(stoptime-starttime);
-            lastStoptime = stoptime;
          }
 
          if (start) xmlFree(start);
@@ -958,8 +954,6 @@ bool cEPGSource::FillXTEventFromXmlNode(cXMLTVEvent *xtEvent, xmlNodePtr enode)
       }
       node = node->next;
    }
-
-   int season = xtEvent->Season(), episode = xtEvent->Episode(), episodeoverall = 0;
 
    return xtEvent->HasTitle();
 }

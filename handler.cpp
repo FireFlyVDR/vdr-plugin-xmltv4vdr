@@ -164,7 +164,7 @@ bool cEpgHandlerXMLTV::DropOutdated(cSchedule *Schedule, time_t SegmentStart, ti
 {  ///< Takes a look at all EPG events between SegmentStart and SegmentEnd and
    ///< drops outdated events (latest TableID and Version are provided, not neccessarily events in the past!).
 
-   bool handled = false;
+   [[maybe_unused]] bool handled = false;
    if (epgChannel)
    {  // has epgChannel
 #ifdef DBG_EPGHANDLER2

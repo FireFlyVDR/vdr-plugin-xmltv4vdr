@@ -27,8 +27,7 @@ TMPDIR ?= /tmp
 
 export CFLAGS   = $(call PKGCFG,cflags)
 export CXXFLAGS = $(call PKGCFG,cxxflags)
-CXXFLAGS += -std=c++11
-CXXFLAGS += -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable
+CXXFLAGS += -std=c++17
 
 ### The version number of VDR's plugin API:
 

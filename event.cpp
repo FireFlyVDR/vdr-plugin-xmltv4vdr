@@ -231,8 +231,6 @@ void cXMLTVEvent::LinkPictures(bool LinkToEventID)
    if (eventid > 0 && !isempty(XMLTVConfig.ImageDir())) {
       for (int i = 0; i < pics.Size(); i++)
       {
-         char *pic = pics.At(i);
-
          char *ext = strrchr(pics.At(i), '.');
          if (!ext) continue;
 
@@ -284,23 +282,9 @@ bool cXMLTVEvent::evaluateFlags(uint64_t Flags, bool isMovie, bool isSeries)
 #define USE_FLAGS(Type) ((Flags & USE_##Type) >> SHIFT_##Type)
 
 void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
-{  /// modififies existing VDR Event
-   const char *creditTypes[10] = {  // dummy array for gettext translations
-      trNOOP("director"),
-      trNOOP("actor"),
-      trNOOP("writer"),
-      trNOOP("adapter"),
-      trNOOP("producer"),
-      trNOOP("composer"),
-      trNOOP("editor"),
-      trNOOP("presenter"),
-      trNOOP("commentator"),
-      trNOOP("guest")
-   };
-
+{  /// modifies existing VDR Event
    if (Event)
    {
-      time_t start, end;
       cString xmlAuxOthers;
       cString xmlAux = "";
       if (Event->Aux()) {
@@ -325,8 +309,6 @@ void cXMLTVEvent::FillEventFromXTEvent(cEvent *Event, uint64_t Flags)
 
       if ((Flags & USE_MASK) > 0)
       {
-         uint64_t flag = 0;
-
          bool isMovie = false;
          for (int i = 0; !isMovie && i < MaxEventContents; i++) {
             isMovie |= (Event->Contents(i) & 0xF0) == ecgMovieDrama;

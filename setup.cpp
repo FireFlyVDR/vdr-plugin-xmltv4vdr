@@ -648,7 +648,6 @@ cMenuSetupMapping::~cMenuSetupMapping()
 
 void cMenuSetupMapping::Set(void)
 {
-   int lineSrc, lineFirstMap, lineLastMap;
    int current = Current();
    Clear();
 
