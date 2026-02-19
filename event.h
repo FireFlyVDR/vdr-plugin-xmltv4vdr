@@ -140,7 +140,6 @@ public:
    void LinkPictures(bool LinkToEventID = false);
    void FillEventFromXTEvent(cEvent *Event, uint64_t Flags);
    int CompareEvent(cEvent *Event, int matchOffset = 0);
-   bool FetchSeasonEpisode();
 };
 
 int strsplit(const char *Source, const char delimiter, cString &Before, cString &Middle, cString &After);
