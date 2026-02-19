@@ -1108,6 +1108,7 @@ void cEPGSources::Action()
 
       if (Running() && (manualStart || timerStart))
       {
+         time_t execstart = time(NULL);
          isImporting = true;
          isyslog("Starting Import (%s start)", manualStart?"manual":"timer controlled");
          cVector<cEPGSource *> sourceList;
@@ -1197,7 +1198,10 @@ void cEPGSources::Action()
 
          isImporting = false;
          mtxImport.Unlock();
-         isyslog("Import finished");
+         int s = time(NULL) - execstart;
+         int m = s / 60;
+         s %= 60;
+         isyslog("Import finished after %dm %ds", m, s);
       }
       delay = time(NULL) - starttime;
       if (delay > 0 && delay < 60 && Running())
