@@ -155,8 +155,8 @@ int cXMLTVSQLite::ExecDBQueryInt(const char *sqlQuery, uint &Integer)
    return result;
 }
 
-bool cXMLTVSQLite::CheckSQLiteSuccess(int SQLrc, int Line, const char * Function)
-{
+bool cXMLTVSQLite::CheckSQLiteSuccess(int SQLrc, int Line, const char *Function)
+{  // return true on successful execution
    bool success = true;
    switch(SQLrc) {
       case SQLITE_OK:
@@ -164,8 +164,8 @@ bool cXMLTVSQLite::CheckSQLiteSuccess(int SQLrc, int Line, const char * Function
       case SQLITE_DONE:
          break;
       default:
-         esyslog("%s:%s %s SQLite Error: '%d-%s', %d-%s", __FILE__, Line ? *itoa(Line) : "", Function ? Function : "",
-                 SQLrc, sqlite3_errstr(SQLrc), sqlite3_extended_errcode(DBHandle), sqlite3_errmsg(DBHandle));
+         esyslog("%s:%s %s SQLite Error: '%d-%s' (%d)", __FILE__, Line ? *itoa(Line) : "", Function ? Function : "",
+                 SQLrc, sqlite3_errstr(SQLrc), sqlite3_extended_errcode(DBHandle));
          success = false;
          break;
    }
@@ -451,33 +451,37 @@ int cEpLists::ReadLine(cStringList *Response, bool Log, int timeoutMs)
 // ================================ cEpisodesDB ==============================================
 bool cEpisodesDB::OpenDBConnection(bool Create)
 {  /// open a DB connection and return true on success
+   bool success = DBHandle != NULL;
    if (!isempty(XMLTVConfig.EpisodesDBFile()) && !DBHandle)
    {
-      if (cXMLTVSQLite::OpenDBConnection(XMLTVConfig.EpisodesDBFile(), SQLITE_OPEN_READWRITE | (Create ? SQLITE_OPEN_CREATE : 0)))
+      if (success = cXMLTVSQLite::OpenDBConnection(XMLTVConfig.EpisodesDBFile(), SQLITE_OPEN_READWRITE | (Create ? SQLITE_OPEN_CREATE : 0)))
       {  // Enable memory mapping
          ExecDBQuery(*cString::sprintf("pragma mmap_size = %llu;", MEGABYTE(16)));
 
          uint version = 0;
-         int result = ExecDBQueryInt("pragma user_version", version);
+         ExecDBQueryInt("pragma user_version", version);
          lastUpdate = version;
          XMLTVConfig.SetLastEpisodesUpdate(lastUpdate);
          if (!lastUpdate)
-            CreateDB();
-      }
-      cString sqlQueryEpisodes = cString::sprintf("SELECT season, episode, episodeoverall FROM episodes, series "
-                                                  "WHERE episodes.seriesid=series.id AND series.name = ?1 AND episodes.name = ?2;");
-      stmtQueryEpisodes = NULL;
-      int SQLrc = sqlite3_prepare_v2(DBHandle, *sqlQueryEpisodes, -1, &stmtQueryEpisodes, NULL);
-      bool success = CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
+            success = CreateDB();
 
-      cString sqlQueryAllEpisodes = cString::sprintf("SELECT episodes.name, season, episode, episodeoverall FROM episodes, series "
-                                                  "WHERE episodes.seriesid=series.id AND series.name = ?1;");
-      stmtQueryAllEpisodes = NULL;
-      SQLrc = sqlite3_prepare_v2(DBHandle, *sqlQueryAllEpisodes, -1, &stmtQueryAllEpisodes, NULL);
-      success &= CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
+         if (success) {
+            cString sqlQueryEpisodes = cString::sprintf("SELECT season, episode, episodeoverall FROM episodes, series "
+                                                        "WHERE episodes.seriesid=series.id AND series.name = ?1 AND episodes.name = ?2;");
+            stmtQueryEpisodes = NULL;
+            int SQLrc = sqlite3_prepare_v2(DBHandle, *sqlQueryEpisodes, -1, &stmtQueryEpisodes, NULL);
+            success &= CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
+
+            cString sqlQueryAllEpisodes = cString::sprintf("SELECT episodes.name, season, episode, episodeoverall FROM episodes, series "
+                                                           "WHERE episodes.seriesid=series.id AND series.name = ?1;");
+            stmtQueryAllEpisodes = NULL;
+            SQLrc = sqlite3_prepare_v2(DBHandle, *sqlQueryAllEpisodes, -1, &stmtQueryAllEpisodes, NULL);
+            success &= CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
+         }
+      }
    }
 
-   return (DBHandle != NULL);
+   return success;
 }
 
 
@@ -739,7 +743,7 @@ bool cEpisodesDB::UpdateDBFromFiles()
                   if (newestFileTime < st.st_mtime)
                      newestFileTime = st.st_mtime;
 #ifdef DBG_EPISODES
-                  tsyslog("EEPL84: %4d %3d %s %s", seriesId, cnt, *DayDateTime(newestFileTime), *epTitle);
+                  tsyslog("EPL84: %4d %3d %s %s", seriesId, cnt, *DayDateTime(newestFileTime), *epTitle);
 #endif
                }
                fclose(epFile);
@@ -966,15 +970,16 @@ cXMLTVDB::~cXMLTVDB()
 }
 
 bool cXMLTVDB::OpenDBConnection(bool Create)
-{  /// open a DB connection an return true on success
+{  /// open a DB connection and return true on success
+   bool success = DBHandle != NULL;
    if (!XMLTVConfig.DBinitialized() || !DBHandle)
    {
-      if (cXMLTVSQLite::OpenDBConnection(XMLTVConfig.EPGDBFile(), SQLITE_OPEN_READWRITE | (Create ? SQLITE_OPEN_CREATE : 0)))
+      if (success = cXMLTVSQLite::OpenDBConnection(XMLTVConfig.EPGDBFile(), SQLITE_OPEN_READWRITE | (Create ? SQLITE_OPEN_CREATE : 0)))
       {  // Enable memory mapping
-         cXMLTVSQLite::ExecDBQuery(*cString::sprintf("pragma mmap_size = %llu;", MEGABYTE(256)));
+         ExecDBQuery(*cString::sprintf("pragma mmap_size = %llu;", MEGABYTE(256)));
       }
    }
-   return (DBHandle != NULL);
+   return success;
 }
 
 
@@ -1241,7 +1246,7 @@ int cXMLTVDB::UnlinkPictures(const cXMLTVStringList *Pics, const char *ChannelID
          // unlink channelID_EventID.jpg
          lnk = cString::sprintf("%s/%s_%u_%u.%s", XMLTVConfig.ImageDir(), ChannelID, EventID, i, ext);
          if (unlink(*lnk) == 0) {
-#ifdef DBG_DROPEVENTS2_X
+#ifdef DBG_DROPEVENTS2
             tsyslog("UnlinkPictures: unlinked %s_%u_%u.%s", ChannelID, EventID, i, ext);
 #endif
             deleted++;
@@ -1268,44 +1273,45 @@ bool cXMLTVDB::AddOrphanedPicture(const char *Source, const char *Picture)
 int cXMLTVDB::DeleteOrphanedPictures(void)
 {  // delete pics if no additional reference in DB
    int pics_deleted = 0;
-   OpenDBConnection();
-   cXMLTVStringList linkList;
-   for (int i = 0; i < orphanedPictures.Size(); i++) {
-      cString sqlQueryPics = cString::sprintf("SELECT count(*) FROM epg WHERE src='%s' AND pics LIKE '%%%s%%';",
-                                              orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
-
-      uint picCount = 0;
-      int result = ExecDBQueryInt(*sqlQueryPics, picCount);  //TODO precompile SQL query
-      if (result != SQLqryOne) {
-         tsyslog("DeleteOrphanedPictures: SQL-Error %d (0x%08X)", result, DBHandle);
-      }
-      else {
-         if (picCount == 0) {
-            cString picFilename = cString::sprintf("%s/%s-img/%s", XMLTVConfig.EPGSourcesDir(), orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
-            struct stat statbuf;
-            if ((stat(*picFilename, &statbuf) == 0) && (statbuf.st_mode & (S_IFLNK | S_IFREG))) {  // regular file or link
-               if (unlink(*picFilename) == 0) {
-#ifdef DBG_DROPEVENTS2
-                  tsyslog("DeleteOrphanedPictures: deleted %s %s", orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
-#endif
-                  pics_deleted++;
-               }
-            }
+   bool success = OpenDBConnection();
+   if (success) {
+      for (int i = 0; i < orphanedPictures.Size(); i++) {
+         cString sqlQueryPics = cString::sprintf("SELECT count(*) FROM epg WHERE src='%s' AND pics LIKE '%%%s%%';",
+                                                 orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
+         uint picCount = 0;
+         int result = ExecDBQueryInt(*sqlQueryPics, picCount);  //TODO precompile SQL query
+         if (result != SQLqryOne) {
+            tsyslog("DeleteOrphanedPictures: SQL-Error result=%d (0x%08X)", result, DBHandle);
          }
          else {
+            if (picCount == 0) {
+               cString picFilename = cString::sprintf("%s/%s-img/%s", XMLTVConfig.EPGSourcesDir(), orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
+               struct stat statbuf;
+               if ((stat(*picFilename, &statbuf) == 0) && (statbuf.st_mode & (S_IFLNK | S_IFREG))) {  // regular file or link
+                  if (unlink(*picFilename) == 0) {
 #ifdef DBG_DROPEVENTS2
-            tsyslog("DeleteOrphanedPictures: NOT deleted (%d) %s %s", picCount, orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
+                     tsyslog("DeleteOrphanedPictures: deleted %s %s", orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
 #endif
+                     pics_deleted++;
+                  }
+               }
+            }
+            else {
+#ifdef DBG_DROPEVENTS2
+               tsyslog("DeleteOrphanedPictures: NOT deleted (%d) %s %s", picCount, orphanedPictures.At(i)->A(), orphanedPictures.At(i)->B());
+#endif
+            }
          }
       }
    }
    CloseDBConnection(__LINE__);
 
 #ifdef DBG_DROPEVENTS2
-      tsyslog("DeletePictures: deleted %d pics", pics_deleted);
+   tsyslog("DeleteOrphanedPictures: deleted %d pics", pics_deleted);
 #endif
 
-   orphanedPictures.Clear();
+   if (success)
+      orphanedPictures.Clear();
    return pics_deleted;
 }
 
@@ -1448,116 +1454,114 @@ bool cXMLTVDB::UpdateEvent(cEvent *Event, uint64_t Flags) //, const char *Channe
          // therefore search for nearest matching event if TableVersion changed
          if (isempty(Event->Aux()) || IsNewVersion(Event))
          {
-         sqlite3_stmt *stmt;
-         cString sqlSelect = cString::sprintf("SELECT channelid, starttime, eventid, tableversion, xteventid, "
-            "src, title, shorttext, description, duration, season, episode, episodeoverall, origtitle, "
-            "country, year, credits, category, review, parentalrating, starrating, pics, ABS(starttime - %lu) AS deltaT FROM epg "
-            "WHERE channelid='%s' AND starttime >= %lu AND starttime <= %lu "
-            "ORDER BY deltaT ASC;",
-             Event->StartTime(), *Event->ChannelID().ToString(), Event->StartTime() - TIMERANGE, Event->StartTime() + TIMERANGE);
+            sqlite3_stmt *stmt;
+            cString sqlSelect = cString::sprintf("SELECT channelid, starttime, eventid, tableversion, xteventid, "
+               "src, title, shorttext, description, duration, season, episode, episodeoverall, origtitle, "
+               "country, year, credits, category, review, parentalrating, starrating, pics, ABS(starttime - %lu) AS deltaT FROM epg "
+               "WHERE channelid='%s' AND starttime >= %lu AND starttime <= %lu "
+               "ORDER BY deltaT ASC;",
+               Event->StartTime(), *Event->ChannelID().ToString(), Event->StartTime() - TIMERANGE, Event->StartTime() + TIMERANGE);
 
-         int SQLrc = sqlite3_prepare_v2(DBHandle, *sqlSelect, -1, &stmt, NULL);
-         if (!CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__)) {
-            CloseDBConnection(__LINE__);
-            return false;
-         }
+            int SQLrc = sqlite3_prepare_v2(DBHandle, *sqlSelect, -1, &stmt, NULL);
+            if (CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__))
+            {
+               SQLrc = sqlite3_step(stmt);
+               cXMLTVEvent *DBEvent = NULL;
+               int bestMatch = 255;
+               while (SQLrc == SQLITE_ROW)
+               {  // fetch one row from DB
+                  DBEvent = FillXMLTVEventFromDB(stmt); // fill XMLTV Event from DB row
+                  if (DBEvent) {
+                     int newMatch = DBEvent->CompareEvent((cEvent *)Event);
+                     if (newMatch < bestMatch && newMatch > 0 && (abs(Event->StartTime() - DBEvent->StartTime()) < TIMERANGE)) {
+                        bestMatch = newMatch;
+                        DELETENULL(xtEvent);
+                        xtEvent = DBEvent;
+                        //tsyslog("new event found: %02X %s E:%5d (%s) E:%s X:%s E:'%s~%s' X:'%s~%s'", newMatch, *Event->ChannelID().ToString(), Event->EventID(), *GetChannelName(Event->ChannelID()),
+                        //        *Time2Str(Event->StartTime()),  *Time2Str(xtEvent->StartTime()), Event->Title(), Event->ShortText(),
+                        //        xtEvent->Title(), xtEvent->ShortText());
+                     }
+                     else
+                        DELETENULL(DBEvent);
+                  }
+                  SQLrc = sqlite3_step(stmt);
+               }
+               CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
 
-         SQLrc = sqlite3_step(stmt);
-         cXMLTVEvent *DBEvent = NULL;
-         int bestMatch = 255;
-         while (SQLrc == SQLITE_ROW)
-         {  // fetch one row from DB
-            DBEvent = FillXMLTVEventFromDB(stmt); // fill XMLTV Event from DB row
-            if (DBEvent) {
-               int newMatch = DBEvent->CompareEvent((cEvent *)Event);
-               if (newMatch < bestMatch && newMatch > 0 && (abs(Event->StartTime() - DBEvent->StartTime()) < TIMERANGE)) {
-                  bestMatch = newMatch;
+               sqlite3_finalize(stmt);
+
+               if (xtEvent)
+               {  // update eventID in DB, NOTE do NOT check if timestamp is beyond read-ahead time of source !
+                  cString eventTitle = Event->Title();
+                  if (strlen(*eventTitle) > 2 && xtEvent->EpisodeOverall() == 0) {
+                     // if Title contains overall episode but it's not in xtEvent then add it
+                     char *s = (char *)*eventTitle;
+                     char *p = s + strlen(s) - 1;
+                     if (*p-- == ')') {
+                        while (strchr("0123456789/( ", *p) && p > s)
+                           p--;
+                        if (*++p == '(') {
+                           *p = '\0';  //TODO do not cut off non-numeric content
+                           int episodeOverall = atoi(p+2);
+#ifdef DBG_EPISODES2
+                           tsyslog("EOverall: %s %d %s~%s", p+1, episodeOverall, Event->Title(),Event->ShortText());
+#endif
+                           if (episodeOverall > 0)
+                              xtEvent->SetEpisodeOverall(episodeOverall);
+                        }
+                     }
+                  }
+
+                  if (xtEvent->EventID() != 0) {
+                     UnlinkPictures(xtEvent->Pics(), *xtEvent->ChannelID().ToString(), xtEvent->EventID());
+                  }
+#ifdef DBG_EPGHANDLER
+                  tsyslog("UpdateEvent2: %s %s %5d (%s) E:%02X%02X X:%02X%02X E:%s~%s X:%s~%s", *Time2Str(Event->StartTime()), *Event->ChannelID().ToString(), Event->EventID(), *GetChannelName(Event->ChannelID()),
+                          Event->TableID(), Event->Version(), xtEvent->TableID(), xtEvent->Version(),
+                          Event->Title(), Event->ShortText(), xtEvent->Title(), xtEvent->ShortText());
+#endif
+                  cString sqlUpdate = cString::sprintf("UPDATE epg SET eventid=%u, tableversion=%u, episodeoverall=%u "
+                                                       "WHERE channelid='%s' AND starttime=%lu;",
+                                                       Event->EventID(), (Event->TableID() << 8) | Event->Version(), xtEvent->EpisodeOverall(),
+                                                       *Event->ChannelID().ToString(), xtEvent->StartTime());
+                  ExecDBQuery(*sqlUpdate);
+                  // Update DVB Event from xtEvent
+                  xtEvent->FillEventFromXTEvent(Event, Flags);
                   DELETENULL(xtEvent);
-                  xtEvent = DBEvent;
-                  //tsyslog("new event found: %02X %s E:%5d (%s) E:%s X:%s E:'%s~%s' X:'%s~%s'", newMatch, *Event->ChannelID().ToString(), Event->EventID(), *GetChannelName(Event->ChannelID()),
-                  //        *Time2Str(Event->StartTime()),  *Time2Str(xtEvent->StartTime()), Event->Title(), Event->ShortText(),
-                  //        xtEvent->Title(), xtEvent->ShortText());
+                  handled = true;
                }
                else
-                  DELETENULL(DBEvent);
-            }
-            SQLrc = sqlite3_step(stmt);
-         }
-         CheckSQLiteSuccess(SQLrc, __LINE__, __FUNCTION__);
-
-         sqlite3_finalize(stmt);
-
-         if (xtEvent)
-         {  // update eventID in DB, NOTE do NOT check if timestamp is beyond read-ahead time of source !
-            cString eventTitle = Event->Title();
-            if (strlen(*eventTitle) > 2 && xtEvent->EpisodeOverall() == 0) {
-               // if Title contains overall episode but it's not in xtEvent then add it
-               char *s = (char *)*eventTitle;
-               char *p = s + strlen(s) - 1;
-               if (*p-- == ')') {
-                  while (strchr("0123456789/( ", *p) && p > s)
-                     p--;
-                  if (*++p == '(') {
-                     *p = '\0';  //TODO do not cut off non-numeric content
-                     int episodeOverall = atoi(p+2);
-#ifdef DBG_EPISODES2
-                     tsyslog("EOverall: %s %d %s~%s", p+1, episodeOverall, Event->Title(),Event->ShortText());
+               {  // no xtEvent found
+#ifdef DBG_EPGHANDLER
+                  tsyslog("UpdateEvent3: %s %s %d %02X%02X (%s) \"%s~%s\" no matching event found", *Time2Str(Event->StartTime()),*Event->ChannelID().ToString(), Event->EventID(), Event->TableID(), Event->Version(), *GetChannelName(Event->ChannelID()), Event->Title(), Event->ShortText());
 #endif
-                     if (episodeOverall > 0)
-                        xtEvent->SetEpisodeOverall(episodeOverall);
+                  // remove Aux additions if any
+                  cString xmlAuxOthers;
+                  if (Event->Aux()) {
+                     char *xmlBegin = strstr((char *)Event->Aux(), xmlTagStart);
+                     if (xmlBegin) {
+                        xmlAuxOthers = cString(Event->Aux(), xmlBegin);
+                        char *xmlEnd = strstr((char *)Event->Aux(), xmlTagEnd);
+                        if (xmlEnd)
+                           xmlAuxOthers.Append(cString(xmlEnd + strlen(xmlTagEnd)));
+                     }
                   }
-               }
-            }
 
-            if (xtEvent->EventID() != 0) {
-               UnlinkPictures(xtEvent->Pics(), *xtEvent->ChannelID().ToString(), xtEvent->EventID());
-            }
-#ifdef DBG_EPGHANDLER
-            tsyslog("UpdateEvent2: %s %s %5d (%s) E:%02X%02X X:%02X%02X E:%s~%s X:%s~%s", *Time2Str(Event->StartTime()), *Event->ChannelID().ToString(), Event->EventID(), *GetChannelName(Event->ChannelID()),
-                    Event->TableID(), Event->Version(), xtEvent->TableID(), xtEvent->Version(),
-                    Event->Title(), Event->ShortText(), xtEvent->Title(), xtEvent->ShortText());
-#endif
-            cString sqlUpdate = cString::sprintf("UPDATE epg SET eventid=%u, tableversion=%u, episodeoverall=%u "
-                                                 "WHERE channelid='%s' AND starttime=%lu;",
-                                                 Event->EventID(), (Event->TableID() << 8) | Event->Version(), xtEvent->EpisodeOverall(),
-                                                 *Event->ChannelID().ToString(), xtEvent->StartTime());
-            ExecDBQuery(*sqlUpdate);
-            // Update DVB Event from xtEvent
-            xtEvent->FillEventFromXTEvent(Event, Flags);
-            DELETENULL(xtEvent);
-            handled = true;
-         }
-         else
-         {
-#ifdef DBG_EPGHANDLER
-            tsyslog("UpdateEvent3: %s %s %d %02X%02X (%s) \"%s~%s\" no matching event found", *Time2Str(Event->StartTime()),*Event->ChannelID().ToString(), Event->EventID(), Event->TableID(), Event->Version(), *GetChannelName(Event->ChannelID()), Event->Title(), Event->ShortText());
-#endif
-            // remove Aux additions if any
-            cString xmlAuxOthers;
-            if (Event->Aux()) {
-               char *xmlBegin = strstr((char *)Event->Aux(), xmlTagStart);
-               if (xmlBegin) {
-                  xmlAuxOthers = cString(Event->Aux(), xmlBegin);
-                  char *xmlEnd = strstr((char *)Event->Aux(), xmlTagEnd);
-                  if (xmlEnd)
-                     xmlAuxOthers.Append(cString(xmlEnd + strlen(xmlTagEnd)));
+                  if (!isempty(*xmlAuxOthers)) {
+                     cString xmlTmp = xmlAuxOthers;
+                     char *xmlBegin = strstr((char *)*xmlTmp, xmlTagTVStart);
+                     if (xmlBegin) {
+                        xmlAuxOthers = cString(*xmlTmp, xmlBegin);
+                        char *xmlEnd = strstr((char *)*xmlTmp, xmlTagTVEnd);
+                        if (xmlEnd)
+                           xmlAuxOthers.Append(cString(xmlEnd + strlen(xmlTagTVEnd)));
+                     }
+                  }
+                  xmlAuxOthers.Append(*cString::sprintf("%s%d%s", xmlTagTVStart, (Event->TableID() << 8) | Event->Version(), xmlTagTVEnd));
+                  Event->SetAux(*xmlAuxOthers);
                }
             }
-
-            if (!isempty(*xmlAuxOthers)) {
-               cString xmlTmp = xmlAuxOthers;
-               char *xmlBegin = strstr((char *)*xmlTmp, xmlTagTVStart);
-               if (xmlBegin) {
-                  xmlAuxOthers = cString(*xmlTmp, xmlBegin);
-                  char *xmlEnd = strstr((char *)*xmlTmp, xmlTagTVEnd);
-                  if (xmlEnd)
-                     xmlAuxOthers.Append(cString(xmlEnd + strlen(xmlTagTVEnd)));
-               }
-            }
-            xmlAuxOthers.Append(*cString::sprintf("%s%d%s", xmlTagTVStart, (Event->TableID() << 8) | Event->Version(), xmlTagTVEnd));
-            Event->SetAux(*xmlAuxOthers);
          }
-       }
       } // END not found by eventID
       sqlite3_clear_bindings(stmtUpdateEventSelect);
       sqlite3_reset(stmtUpdateEventSelect);
@@ -1817,7 +1821,7 @@ bool cXMLTVDB::DropOutdated(cSchedule *Schedule, time_t SegmentStart, time_t Seg
    while (SQLrc == SQLITE_ROW)
    {  // fetch one row from DB
       tEventID eventID   = sqlite3_column_int(stmt, 0);
-      uint tableversion   = sqlite3_column_int(stmt, 1);
+      uint tableversion  = sqlite3_column_int(stmt, 1);
       cString title      = (char *)sqlite3_column_text(stmt, 2);
       cString shorttext  = (char *)sqlite3_column_text(stmt, 3);
       cString dbPictures = (const char *) sqlite3_column_text(stmt, 4);

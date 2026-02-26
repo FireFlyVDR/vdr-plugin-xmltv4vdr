@@ -43,7 +43,7 @@ class cXMLTVSQLite
 protected:
    sqlite3 *DBHandle;
    cString Time2Str(time_t time);
-   bool CheckSQLiteSuccess(int SQLrc, int Line, const char * Function = NULL);
+   bool CheckSQLiteSuccess(int SQLrc, int Line, const char *Function = NULL);
    cString SQLescape(const char *s, const char *chars = "'");
 
    cXMLTVSQLite(void);
@@ -60,8 +60,6 @@ protected:
    };
    bool Transaction_Begin(void);
    bool Transaction_End(bool Commit = true);
-   //int  Transaction_Changes(void) { return sqlite3_total_changes(DBHandle); }
-
    int Analyze(const char *dbName);
 };
 
