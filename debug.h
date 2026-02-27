@@ -11,7 +11,7 @@
 //#define DBG_EPGHANDLER  1
 //#define DBG_EPGHANDLER2 1
 //#define DBG_EPISODES  1
-//#define DBG_EPISODES2 1
+//#define DBG_EPLISTS 1
 //#define DBG_DROPEVENTS  1
 //#define DBG_DROPEVENTS2 1
 //#define DBG_APPENDEVENTS  1

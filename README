@@ -34,6 +34,7 @@ Requirements:
 VDR 2.4.5+
 libsqlite3
 libxml2
+libuuid
 
 Installation and Configuration:
 -------------------------------
@@ -58,17 +59,18 @@ Episode Lists
 The plugin supports optionally integrating the episodes info from www.eplists.de.
 It uses a local SQLite DB for faster queries and the database is updated before
 fetching the EPG info from external sources. The update con be configured either to
-fetch the episodes info directly from the server (internet connection required)
-or it reads them from a local directory with episode files.
+fetch the episodes info directly from the server (internet connection and valid
+eMail address required) or it reads them from a local directory with episode files.
 Please be aware that the UTF-8 format is mandatory for the episode files.
 
 To enable the usage of episodes info provide a database filename with --episodesdb
 and configure either of the two fetch methods:
 - For fetching the episodes info directly via internet configure the episode server
-(e.g. --episodesserver=www.eplists.de, optionally the Port with --episodesport=PORT)
+  (e.g. --episodesserver=www.eplists.de, optionally the Port with --episodesport=PORT).
+  Also configuring a valid eMail address via --episodesemail=<EMAIL> is required.
 - If no episode server is provided it defaults to use an episode folder at
-"<Plugin-ResourceDir>/episodes". To use a different location use the
-parameter --episodes=DIR.
+  "<Plugin-ResourceDir>/episodes". To use a different location use the
+  parameter --episodes=DIR.
 
 To use a local directory for the updates download the files regularly
 via cron, e.g.:
@@ -124,6 +126,9 @@ contains all parameters the plugin supports:
 
 #  -p DIR,   --episodesport=PORT    port of episodes server
 #                                   default: 2006
+
+#  -m EMAIL, --episodesemail=EMAIL  EMail address to send at login to episodes server
+#                                   default: none
 
 #  -l FILE,  --logfile=FILE         write trace logs into the given FILE
 #                                   default: no trace log written

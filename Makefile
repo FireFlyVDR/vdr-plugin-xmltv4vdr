@@ -28,6 +28,7 @@ TMPDIR ?= /tmp
 export CFLAGS   = $(call PKGCFG,cflags)
 export CXXFLAGS = $(call PKGCFG,cxxflags)
 CXXFLAGS += -std=c++17
+#CXXFLAGS += -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-variable
 
 ### The version number of VDR's plugin API:
 
@@ -48,9 +49,9 @@ SOFILE = libvdr-$(PLUGIN).so
 
 ### Includes and Defines (add further entries here):
 
-CXXFLAGS += $(shell pkg-config --cflags libxml-2.0 sqlite3)
+CXXFLAGS += $(shell pkg-config --cflags libxml-2.0 sqlite3 uuid)
 
-LIBS += $(shell pkg-config --libs libxml-2.0 sqlite3)
+LIBS += $(shell pkg-config --libs libxml-2.0 sqlite3 uuid)
 
 DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
 

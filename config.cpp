@@ -192,6 +192,9 @@ bool cXMLTVConfig::Parse(const char *Name, const char *Extension, const char *Va
       else if (!strcasecmp(Name,"order")) {
          XMLTVConfig.SetDescrSequence(Value);
       }
+      else if (!strcasecmp(Name,"episodeServerUUID")) {
+         XMLTVConfig.SetEpisodesServerUUID(Value);
+      }
    }
    else if (!strcmp(Section, "source")) {
       cEPGSource *src = epgSources->GetSource(Extension);
@@ -260,7 +263,8 @@ bool cXMLTVConfig::Save(void)
 {
    Store("wakeup", wakeup ? "1" : "0", "options");
    Store("fixDuplTitleInShortttext", fixDuplTitleInShortttext ? "1" : "0", "options");
-   Store("order",  GetDescrSequenceString(), "options");
+   Store("order", GetDescrSequenceString(), "options");
+   Store("episodeServerUUID", EpisodesServerUUID(), "options");
 
    for (cEPGChannel *ch = epgChannels->First(); ch; ch = epgChannels->Next(ch)) {
       Store(ch->EPGChannelName(), *ch->ToString(), "channel");

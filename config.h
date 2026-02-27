@@ -65,7 +65,10 @@ private:
    cString episodesDBFile;
    cString episodesServer;
    int episodesServerPort;
+   cString episodesServerUUID;
+   cString episodesServerEmail;
    time_t lastEpisodesUpdate;
+   cString version;
    cString logFilename;
 
    bool DB_initialized;
@@ -115,8 +118,17 @@ public:
    void SetEpisodesServerPort(int EpisodesServerPort) { episodesServerPort = EpisodesServerPort; }
    int EpisodesServerPort()                { return episodesServerPort; }
 
+   void SetEpisodesServerEmail(const char *EmailAddress) { episodesServerEmail = EmailAddress; }
+   const char *EpisodesServerEmail()       { return *episodesServerEmail; }
+
+   void SetEpisodesServerUUID(const char *UUID) { episodesServerUUID = UUID; }
+   const char *EpisodesServerUUID()        { return *episodesServerUUID; }
+
    void SetLastEpisodesUpdate(time_t LastUpdate) { lastEpisodesUpdate = LastUpdate; }
-   time_t LastEpisodesUpdate()                { return lastEpisodesUpdate; }
+   time_t LastEpisodesUpdate()             { return lastEpisodesUpdate; }
+
+   void SetVersion(const char *Version)    { version = Version; }
+   const char *Version()                   { return *version; }
 
    void SetLogFilename(const char *LogFilename) { logFilename = LogFilename; }
    const char *LogFilename(void)           { return *logFilename; }
@@ -137,8 +149,8 @@ public:
    struct descriptionSeq GetDefaultDescrSequence() { return  {0, 1, 2, 3, 4, 5, 6, 7, 8}; }
    const char *GetDescrSequenceString();
 
-   void SetWakeUp(bool Value)            { wakeup = Value; }
-   bool WakeUp()                         { return wakeup; }
+   void SetWakeUp(bool Value)              { wakeup = Value; }
+   bool WakeUp()                           { return wakeup; }
 
    void SetFixDuplTitleInShortttext(bool Value) { fixDuplTitleInShortttext = Value; }
    bool FixDuplTitleInShortttext()              { return fixDuplTitleInShortttext; }

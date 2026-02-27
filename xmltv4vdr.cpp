@@ -8,6 +8,7 @@
 #include <vdr/plugin.h>
 #include <getopt.h>
 #include "setup.h"
+#include <uuid/uuid.h>
 #include "debug.h"
 
 #if defined(APIVERSNUM) && APIVERSNUM < 20405
@@ -81,6 +82,8 @@ const char *cPluginXmltv4vdr::CommandLineHelp(void)
    "                                   default: none\n"
    "  -p PORT,  --episodesport=PORT    port of the episode server\n"
    "                                   default: 2006\n"
+   "  -m EMAIL, --episodesemail=EMAIL  EMail address to send at login to episodes server\n"
+   "                                   default: none\n"
    "  -l FILE,  --logfile=FILE         write trace logs into the given FILE\n"
    "                                   default: no trace log written\n";
 }
@@ -96,12 +99,13 @@ bool cPluginXmltv4vdr::ProcessArgs(int argc, char *argv[])
       { "episodes",       required_argument, NULL, 'e'},
       { "episodesserver", required_argument, NULL, 'h'},
       { "episodesport",   required_argument, NULL, 'p'},
+      { "episodesemail",  required_argument, NULL, 'm'},
       { "logfile",        required_argument, NULL, 'l'},
       { 0,0,0,0 }
    };
 
    int c;
-   while ((c = getopt_long(argc, argv, "d:i:s:E:e:h:p:l:", long_options, NULL)) != -1)
+   while ((c = getopt_long(argc, argv, "d:i:s:E:e:h:p:m:l:", long_options, NULL)) != -1)
    {
       switch (c)
       {
@@ -127,6 +131,9 @@ bool cPluginXmltv4vdr::ProcessArgs(int argc, char *argv[])
             if (isnumber(optarg))
                XMLTVConfig.SetEpisodesServerPort(atoi(optarg));
             break;
+         case 'm':
+            XMLTVConfig.SetEpisodesServerEmail(optarg);
+            break;
          case 'l':
             XMLTVConfig.SetLogFilename(optarg);
             break;
@@ -146,9 +153,10 @@ bool cPluginXmltv4vdr::Initialize(void)
       if (lf)
          XMLTVConfig.SetLogfile(lf);
    }
+   XMLTVConfig.SetVersion(VERSION);
 
    // EPG Sources directory
-   isyslog("using EPG sources dir '%s'", XMLTVConfig.EPGSourcesDir());
+   isyslog("using EPG sources directory '%s'", XMLTVConfig.EPGSourcesDir());
 
    // EPG image directory
    if (isempty(XMLTVConfig.ImageDir()))
@@ -159,11 +167,15 @@ bool cPluginXmltv4vdr::Initialize(void)
       esyslog("Could not access EPG image directory '%s': %d", XMLTVConfig.ImageDir(), errno);
    }
 
+   // SQLite3 checks
+   int threadsafe = sqlite3_threadsafe();
+   isyslog("using SQLite version %s compiled with SQLite_ThreadSafe=%d", sqlite3_libversion(), threadsafe);
+   if (threadsafe == 0) esyslog("WARNING: SQLite3 is not threadsafe!");
+
    // EPG database
    if (isempty(XMLTVConfig.EPGDBFile()))
       XMLTVConfig.SetEPGDBFile(AddDirectory(cPlugin::CacheDirectory(PLUGIN_NAME_I18N), EPG_DB_FILENAME));
-   isyslog("using EPG database '%s' with SQLite version %s", XMLTVConfig.EPGDBFile(), sqlite3_libversion());
-   if (sqlite3_threadsafe() == 0) esyslog("SQLite3 not threadsafe!");
+   isyslog("using EPG database '%s'", XMLTVConfig.EPGDBFile());
 
    // Episodes database
    if (isempty(XMLTVConfig.EpisodesDBFile())) {
@@ -171,7 +183,7 @@ bool cPluginXmltv4vdr::Initialize(void)
    }
    else
    {
-      isyslog("using Episodes database '%s' with SQLite version %s", XMLTVConfig.EpisodesDBFile(), sqlite3_libversion());
+      isyslog("using Episodes database '%s'", XMLTVConfig.EpisodesDBFile());
       if (!isempty(XMLTVConfig.EpisodesServer())) {
          isyslog("using Episodes Server: %s:%d for Updates", XMLTVConfig.EpisodesServer(), XMLTVConfig.EpisodesServerPort());
       }
@@ -190,6 +202,16 @@ bool cPluginXmltv4vdr::Initialize(void)
    // read mappings first followed by config
    XMLTVConfig.EPGSources()->ReadAllConfigs();
    XMLTVConfig.Load(AddDirectory(ConfigDirectory(PLUGIN_NAME_I18N), "xmltv4vdr.conf"));
+   if (isempty(XMLTVConfig.EpisodesServerUUID())) {
+      char uuidStr[UUID_STR_LEN] = "";
+      uuid_t uuid;
+      uuid_generate(uuid);
+      uuid_unparse_upper(uuid, uuidStr);
+      XMLTVConfig.SetEpisodesServerUUID(uuidStr);
+      isyslog("Generated UUID '%s' for episodes server %s", XMLTVConfig.EpisodesServerUUID(), XMLTVConfig.EpisodesServer());
+   }
+   if (!isempty(XMLTVConfig.EpisodesServer()))
+      isyslog("credentials for episodes server: UUID=%s eMail=%s", XMLTVConfig.EpisodesServerUUID(), XMLTVConfig.EpisodesServerEmail());
 
    return true;
 }
