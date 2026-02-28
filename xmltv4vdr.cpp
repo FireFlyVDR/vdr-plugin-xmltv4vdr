@@ -15,7 +15,7 @@
 #error THIS PLUGIN REQUIRES AT LEAST VDR 2.4.5
 #endif
 
-static const char *VERSION        = "0.4.9";
+static const char *VERSION        = "0.4.10";
 static const char *DESCRIPTION    = trNOOP("Imports EPG data in XMLTV format into VDR");
 
 // -------------------------------------------------------------

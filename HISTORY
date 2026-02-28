@@ -29,7 +29,7 @@ NOTE: This version introduces a new database scheme and therefore an
 - refactored XMLTV import to improve robustness especially if unrequested channels are found (reported by dile and Paulaner @VDRportal)
 
 2025-02-02: Version 0.4.7
-- fixed sometimes unrecognized schedules after import while they were available after a restart  (reported by dile @VDRportal)
+- fixed sometimes unrecognized schedules after import while they were available after a restart (reported by dile @VDRportal)
 - fixed replacing events during import when using only external events (reported by Paulaner @VDRportal)
 - make additional (non-requested) channels in XMLTV file a warning instead of an error (reported by Paulaner @VDRportal)
 - refactored time controlled import to allow up to 12 imports per day
@@ -50,3 +50,10 @@ NOTE: This version introduces a new database scheme and therefore an
 - fixed reading flags on 32 bit systems
 - improve robustness of reading config file and handling channel IDs
 
+2026-02-28: Version 0.4.10
+- improve parsing of XMLTV episode information
+- code cleanup
+- improve responsiveness on shutdown
+- add runtime to import message
+- improve robustness of database actions
+- refactoring fetching episode lists via internet - configuring a valid email address is now required
